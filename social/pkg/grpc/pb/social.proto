@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package pb;
+
+
+
+//The Social service definition.
+service Social {
+ rpc FollowUser     (FollowUserRequest    ) returns (FollowUserReply    );
+ rpc UnFollowerUser (UnFollowerUserRequest) returns (UnFollowerUserReply);
+ rpc FollowGroup    (FollowGroupRequest   ) returns (FollowGroupReply   );
+ rpc UnFollowGroup  (UnFollowGroupRequest ) returns (UnFollowGroupReply );
+ rpc FollowTeam     (FollowTeamRequest    ) returns (FollowTeamReply    );
+ rpc UnFollowTeam   (UnFollowTeamRequest  ) returns (UnFollowTeamReply  );
+}
+
+message FollowUserRequest {}
+
+message FollowUserReply {}
+
+message UnFollowerUserRequest {}
+
+message UnFollowerUserReply {}
+
+message FollowGroupRequest {}
+
+message FollowGroupReply {}
+
+message UnFollowGroupRequest {}
+
+message UnFollowGroupReply {}
+
+message FollowTeamRequest {}
+
+message FollowTeamReply {}
+
+message UnFollowTeamRequest {}
+
+message UnFollowTeamReply {}
+

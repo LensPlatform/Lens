@@ -1,0 +1,45 @@
+version: "2"
+services:
+  notification:
+    build:
+      context: .
+      dockerfile: notification/Dockerfile
+    restart: always
+    volumes:
+    - .:/go/src/LensPlatform/Lens
+    container_name: notification
+    ports:
+    - 8800:8081
+    - 8801:8082
+  notifications:
+    build:
+      context: .
+      dockerfile: notifications/Dockerfile
+    restart: always
+    volumes:
+    - .:/go/src/LensPlatform/Lens
+    container_name: notifications
+    ports:
+    - 8805:8081
+    - 8806:8082
+  social:
+    build:
+      context: .
+      dockerfile: social/Dockerfile
+    restart: always
+    volumes:
+    - .:/go/src/LensPlatform/Lens
+    container_name: social
+    ports:
+    - 8802:8082
+  users:
+    build:
+      context: .
+      dockerfile: users/Dockerfile
+    restart: always
+    volumes:
+    - .:/go/src/LensPlatform/Lens
+    container_name: users
+    ports:
+    - 8803:8081
+    - 8804:8082

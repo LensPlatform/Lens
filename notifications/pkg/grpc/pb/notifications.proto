@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package pb;
+
+
+
+//The Notifications service definition.
+service Notifications {
+ rpc SendEmail (SendEmailRequest) returns (SendEmailReply);
+}
+
+message SendEmailRequest {}
+
+message SendEmailReply {}
+
