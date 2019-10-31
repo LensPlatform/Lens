@@ -1,17 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="efc89178-76a3-4e26-aa38-877b55fd2901" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/Lens.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notification/Dockerfile" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/notifications/Dockerfile" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/users/Dockerfile" beforeDir="false" />
-    </list>
+    <list default="true" id="efc89178-76a3-4e26-aa38-877b55fd2901" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,11 +93,20 @@
           <provider selected="true" editor-type-id="text-editor" />
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/notification/Dockerfile">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="92">
-              <caret line="4" column="31" lean-forward="true" selection-start-line="4" selection-start-column="31" selection-end-line="4" selection-end-column="31" />
+              <caret line="4" column="31" selection-start-line="4" selection-start-column="31" selection-end-line="4" selection-end-column="31" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/notification/cmd/main.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="161">
+              <caret line="7" selection-start-line="7" selection-end-line="7" />
             </state>
           </provider>
         </entry>
@@ -128,7 +127,6 @@
         <option value="$PROJECT_DIR$/social/Dockerfile" />
         <option value="$PROJECT_DIR$/users/Dockerfile" />
         <option value="$PROJECT_DIR$/devops/docker-clean.sh" />
-        <option value="$PROJECT_DIR$/notification/cmd/main.go" />
         <option value="$PROJECT_DIR$/notification/pkg/endpoint/endpoint.go" />
         <option value="$PROJECT_DIR$/notification/pkg/endpoint/endpoint_gen.go" />
         <option value="$PROJECT_DIR$/notification/pkg/grpc/handler_gen.go" />
@@ -139,6 +137,7 @@
         <option value="$PROJECT_DIR$/users/pkg/endpoint/endpoint.go" />
         <option value="$PROJECT_DIR$/users/pkg/http/handler.go" />
         <option value="$PROJECT_DIR$/users/pkg/http/handler_gen.go" />
+        <option value="$PROJECT_DIR$/notification/cmd/main.go" />
       </list>
     </option>
   </component>
@@ -293,6 +292,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1440" height="900" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.17525035" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -498,13 +498,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/notification/cmd/main.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="161">
-          <caret line="7" selection-start-line="7" selection-end-line="7" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/notification/pkg/endpoint/endpoint.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="120">
@@ -589,7 +582,14 @@
     <entry file="file://$PROJECT_DIR$/notification/Dockerfile">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="92">
-          <caret line="4" column="31" lean-forward="true" selection-start-line="4" selection-start-column="31" selection-end-line="4" selection-end-column="31" />
+          <caret line="4" column="31" selection-start-line="4" selection-start-column="31" selection-end-line="4" selection-end-column="31" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/notification/cmd/main.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="161">
+          <caret line="7" selection-start-line="7" selection-end-line="7" />
         </state>
       </provider>
     </entry>
