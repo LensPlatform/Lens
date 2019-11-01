@@ -8,19 +8,29 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	"github.com/go-kit/kit/log"
+	_ "github.com/oklog/oklog/pkg/group"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/stefanprodan/podinfo/pkg/api"
-	"github.com/stefanprodan/podinfo/pkg/grpc"
 	"github.com/stefanprodan/podinfo/pkg/signals"
 	"github.com/stefanprodan/podinfo/pkg/version"
+	 trace "github.com/opentracing/opentracing-go"
+	service_stub "LensPlatform/Lens/cmd/podinfo/servicestub"
+	"LensPlatform/Lens/pkg/api"
+	"LensPlatform/Lens/pkg/api/endpoint"
+	"LensPlatform/Lens/pkg/api/service"
+	httplib "LensPlatform/Lens/pkg/api/http"
+	"LensPlatform/Lens/pkg/grpc"
 )
 
+
 func main() {
+	// define tracer
+	var tracer trace.Tracer
+
 	// flags definition
 	fs := pflag.NewFlagSet("default", pflag.ContinueOnError)
 	fs.Int("port", 9898, "HTTP port")
@@ -45,7 +55,6 @@ func main() {
 	fs.Int("stress-memory", 0, "MB of data to load into memory")
 
 	versionFlag := fs.BoolP("version", "v", false, "get version number")
-
 	// parse flags
 	err := fs.Parse(os.Args[1:])
 	switch {
@@ -121,6 +130,18 @@ func main() {
 		zap.String("revision", viper.GetString("revision")),
 		zap.String("port", srvCfg.Port),
 	)
+
+	// initialize service and endpoint definitions
+	svc := service.New(service_stub.GetServiceMiddleware(logger))
+	eps := endpoint.New(svc, service_stub.GetEndpointMiddleware(logger))
+
+	kitlog := log.NewLogfmtLogger(os.Stderr)
+	kitlog = log.With(kitlog, "ts", log.DefaultTimestampUTC)
+	kitlog = log.With(kitlog, "caller", log.DefaultCaller)
+
+	options := service_stub.DefaultHttpOptions(kitlog, tracer)
+	// register http handlers for service
+	httplib.NewHTTPHandler(eps, options)
 
 	// start HTTP server
 	srv, _ := api.NewServer(&srvCfg, logger)

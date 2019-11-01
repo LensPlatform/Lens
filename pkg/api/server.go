@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/swaggo/swag"
-	"net/http"
+	http "net/http"
+	"LensPlatform/Lens/pkg/api/endpoint"
+	httpWrapper "LensPlatform/Lens/pkg/api/http"
+	kitHttp "github.com/go-kit/kit/transport/http"
+
 	_ "net/http/pprof"
 	"os"
 	"strings"
@@ -68,6 +72,7 @@ type Server struct {
 	router *mux.Router
 	logger *zap.Logger
 	config *Config
+	handler http.Handler
 }
 
 func NewServer(config *Config, logger *zap.Logger) (*Server, error) {
@@ -76,7 +81,6 @@ func NewServer(config *Config, logger *zap.Logger) (*Server, error) {
 		logger: logger,
 		config: config,
 	}
-
 	return srv, nil
 }
 
@@ -119,6 +123,9 @@ func (s *Server) registerHandlers() {
 		}
 		w.Write([]byte(doc))
 	})
+
+	// User route handlers
+
 }
 
 func (s *Server) registerMiddlewares() {

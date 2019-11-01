@@ -3,7 +3,7 @@ package http
 import (
 	http1 "net/http"
 
-	http "github.com/go-kit/kit/transport/http"
+	"github.com/go-kit/kit/transport/http"
 
 	"LensPlatform/Lens/pkg/api/endpoint"
 )
