@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/go-kit/kit/log"
 	_ "github.com/oklog/oklog/pkg/group"
 	"github.com/spf13/pflag"
@@ -15,15 +16,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	trace "github.com/opentracing/opentracing-go"
 	"github.com/stefanprodan/podinfo/pkg/signals"
 	"github.com/stefanprodan/podinfo/pkg/version"
-	 trace "github.com/opentracing/opentracing-go"
-	service_stub "LensPlatform/Lens/cmd/podinfo/servicestub"
-	"LensPlatform/Lens/pkg/api"
-	"LensPlatform/Lens/pkg/api/endpoint"
-	"LensPlatform/Lens/pkg/api/service"
+
+	"github.com/LensPlatform/Lens/pkg/api"
+	"github.com/LensPlatform/Lens/pkg/api/endpoint"
 	httplib "LensPlatform/Lens/pkg/api/http"
-	"LensPlatform/Lens/pkg/grpc"
+	"github.com/LensPlatform/Lens/pkg/api/service"
+	"github.com/LensPlatform/Lens/pkg/api/servicestub"
+	"github.com/LensPlatform/Lens/pkg/grpc"
 )
 
 
@@ -132,14 +134,14 @@ func main() {
 	)
 
 	// initialize service and endpoint definitions
-	svc := service.New(service_stub.GetServiceMiddleware(logger))
-	eps := endpoint.New(svc, service_stub.GetEndpointMiddleware(logger))
+	svc := service.New(servicestub.GetServiceMiddleware(logger))
+	eps := endpoint.New(svc, servicestub.GetEndpointMiddleware(logger))
 
 	kitlog := log.NewLogfmtLogger(os.Stderr)
 	kitlog = log.With(kitlog, "ts", log.DefaultTimestampUTC)
 	kitlog = log.With(kitlog, "caller", log.DefaultCaller)
 
-	options := service_stub.DefaultHttpOptions(kitlog, tracer)
+	options := servicestub.DefaultHttpOptions(kitlog, tracer)
 	// register http handlers for service
 	httplib.NewHTTPHandler(eps, options)
 

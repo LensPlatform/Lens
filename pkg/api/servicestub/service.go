@@ -14,9 +14,9 @@ import (
 	prometheus1 "github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	endpoint "LensPlatform/Lens/pkg/api/endpoint"
-	http1 "LensPlatform/Lens/pkg/api/http"
-	"LensPlatform/Lens/pkg/api/service"
+	endpoint "github.com/LensPlatform/Lens/pkg/api/endpoint"
+	http1 "github.com/LensPlatform/Lens/pkg/api/http"
+	"github.com/LensPlatform/Lens/pkg/api/service"
 )
 
 func DefaultHttpOptions(logger log.Logger, tracer opentracinggo.Tracer) map[string][]http.ServerOption {

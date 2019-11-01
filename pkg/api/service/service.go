@@ -7,7 +7,7 @@ import (
 	sdetcd "github.com/go-kit/kit/sd/etcd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	)
+)
 
 type basicUsersService struct{}
 
@@ -49,18 +49,18 @@ type UsersService interface {
 	IsGroupPrivate(ctx context.Context, groupID string) (isPrivate bool, err error)
 }
 
-func (b *basicUsersService) CreateUserAccount(ctx context.Context, user interface{}, userType string) (id string, e0 error){
-	// TODO implement the business logic of UpdateUserAccount
-	return "",e0
-}
-
-func (b *basicUsersService) UpdateUserAccount(ctx context.Context, user interface{}, id string) (userID string, e0 error){
+func (b *basicUsersService) CreateUserAccount(ctx context.Context, user interface{}, userType string) (id string, e0 error) {
 	// TODO implement the business logic of UpdateUserAccount
 	return "", e0
 }
-func (b *basicUsersService) DeleteUserAccount(ctx context.Context, id string) (userID string, e0 error){
+
+func (b *basicUsersService) UpdateUserAccount(ctx context.Context, user interface{}, id string) (userID string, e0 error) {
+	// TODO implement the business logic of UpdateUserAccount
+	return "", e0
+}
+func (b *basicUsersService) DeleteUserAccount(ctx context.Context, id string) (userID string, e0 error) {
 	// TODO implement the business logic of DeleteUserAccount
-	return "",e0
+	return "", e0
 }
 func (b *basicUsersService) GetUserAccount(ctx context.Context, id string) (user interface{}, err error) {
 	// TODO implement the business logic of GetUserAccount
@@ -72,7 +72,7 @@ func (b *basicUsersService) CreateTeamsAccount(ctx context.Context, team interfa
 }
 func (b *basicUsersService) UpdateTeamsAccount(ctx context.Context, team interface{}, teamID string) (id string, e0 error) {
 	// TODO implement the business logic of UpdateTeamsAccount
-	return "",e0
+	return "", e0
 }
 func (b *basicUsersService) DeleteTeamsAccount(ctx context.Context, teamID string) (id string, e0 error) {
 	// TODO implement the business logic of DeleteTeamsAccount
@@ -84,7 +84,7 @@ func (b *basicUsersService) GetTeamsAccount(ctx context.Context, teamID string) 
 }
 func (b *basicUsersService) AddUserToTeamsAccount(ctx context.Context, teamID string, userID string) (id string, e0 error) {
 	// TODO implement the business logic of AddUserToTeamsAccount
-	return "",e0
+	return "", e0
 }
 func (b *basicUsersService) DeleteUserFromTeamsAccount(ctx context.Context, teamID string, userID string) (id string, e0 error) {
 	// TODO implement the business logic of DeleteUserFromTeamsAccount
@@ -137,7 +137,7 @@ func New(middleware []Middleware) UsersService {
 	return svc
 }
 
-func connectToServices(Logger *zap.Logger, connectionProperties ConnectionProperties, servicePrefixes... string /* ex. "/services/notificator/"*/) error {
+func connectToServices(Logger *zap.Logger, connectionProperties ConnectionProperties, servicePrefixes ...string /* ex. "/services/notificator/"*/) error {
 	var etcdServer = "http://etcd:2379"
 	client, err := sdetcd.NewClient(context.Background(), []string{etcdServer}, sdetcd.ClientOptions{})
 	if err != nil {
@@ -148,7 +148,7 @@ func connectToServices(Logger *zap.Logger, connectionProperties ConnectionProper
 
 	// Make sure service Prefix slice is not empty and attempt connection to all entries
 	// present in the slice
-	for _, servicePrefix := range servicePrefixes{
+	for _, servicePrefix := range servicePrefixes {
 		// Obtain number of service instances presently defined in the docker config.
 		entries, err := client.GetEntries(servicePrefix)
 
@@ -164,7 +164,7 @@ func connectToServices(Logger *zap.Logger, connectionProperties ConnectionProper
 		if err != nil {
 			Logger.Error("unable to connect to notificator: %s. attempting retry", zap.Error(err))
 
-			err = retryConnection(entries, 0, connectionProperties.maxRetryCount,Logger)
+			err = retryConnection(entries, 0, connectionProperties.maxRetryCount, Logger)
 
 			if err != nil {
 				Logger.Error("retry count exceeded. unable to connect to service", zap.Error(err))
@@ -178,17 +178,17 @@ func connectToServices(Logger *zap.Logger, connectionProperties ConnectionProper
 	return nil
 }
 
-func retryConnection(serviceInstances []string, selectedInstanceIdx int, maxRetryCount int, Logger *zap.Logger) error{
+func retryConnection(serviceInstances []string, selectedInstanceIdx int, maxRetryCount int, Logger *zap.Logger) error {
 	retryCount := 0
 	lastInstanceIdx := len(serviceInstances) - 1
 	for retryCount <= maxRetryCount {
 		// attempt connection retry to an instances starting from the last instance
-		_ , err := grpc.Dial(serviceInstances[lastInstanceIdx], grpc.WithInsecure())
+		_, err := grpc.Dial(serviceInstances[lastInstanceIdx], grpc.WithInsecure())
 
 		lastInstanceIdx--
 
 		if lastInstanceIdx != -1 {
-			lastInstanceIdx = len(serviceInstances) -1
+			lastInstanceIdx = len(serviceInstances) - 1
 		}
 
 		// add error handling check.
@@ -196,13 +196,10 @@ func retryConnection(serviceInstances []string, selectedInstanceIdx int, maxRetr
 			Logger.Error("unable to connect to notificator: %s", zap.Error(err))
 			retryCount++
 		} else {
-				return nil
+			return nil
 		}
 
 	}
 
 	return errors.New("unable to connect to service due to exceeded retry count")
 }
-
-
-

@@ -8,7 +8,7 @@ import (
 
 	http1 "github.com/go-kit/kit/transport/http"
 
-	"LensPlatform/Lens/pkg/api/endpoint"
+	"github.com/LensPlatform/Lens/pkg/api/endpoint"
 )
 
 // makeCreateUserAccountHandler creates the handler logic

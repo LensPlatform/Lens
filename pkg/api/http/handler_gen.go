@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/kit/transport/http"
 
-	"LensPlatform/Lens/pkg/api/endpoint"
+	"github.com/LensPlatform/Lens/pkg/api/endpoint"
 )
 
 // NewHTTPHandler returns a handler that makes a set of endpoints available on

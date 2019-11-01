@@ -3,7 +3,7 @@ package endpoint
 import (
 	"context"
 
-	service "LensPlatform/Lens/pkg/api/service"
+	service "github.com/LensPlatform/Lens/pkg/api/service"
 
 	endpoint "github.com/go-kit/kit/endpoint"
 )
@@ -17,7 +17,7 @@ type CreateUserAccountRequest struct {
 // CreateUserAccountResponse collects the response parameters for the CreateUserAccount method.
 type CreateUserAccountResponse struct {
 	Id string `json:"id"`
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 }
 
 // MakeCreateUserAccountEndpoint returns an endpoint that invokes CreateUserAccount on the service.
@@ -42,8 +42,8 @@ type UpdateUserAccountRequest struct {
 
 // UpdateUserAccountResponse collects the response parameters for the UpdateUserAccount method.
 type UpdateUserAccountResponse struct {
-	E0 error `json:"e0"`
-	Id   string      `json:"id"`
+	E0 error  `json:"e0"`
+	Id string `json:"id"`
 }
 
 // MakeUpdateUserAccountEndpoint returns an endpoint that invokes UpdateUserAccount on the service.
@@ -67,7 +67,7 @@ type DeleteUserAccountRequest struct {
 
 // DeleteUserAccountResponse collects the response parameters for the DeleteUserAccount method.
 type DeleteUserAccountResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -121,7 +121,7 @@ type CreateTeamsAccountRequest struct {
 
 // CreateTeamsAccountResponse collects the response parameters for the CreateTeamsAccount method.
 type CreateTeamsAccountResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -130,7 +130,7 @@ func MakeCreateTeamsAccountEndpoint(s service.UsersService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(CreateTeamsAccountRequest)
 		id, e0 := s.CreateTeamsAccount(ctx, req.Team, req.TeamType)
-		return CreateTeamsAccountResponse{Id : id, E0: e0}, nil
+		return CreateTeamsAccountResponse{Id: id, E0: e0}, nil
 	}
 }
 
@@ -147,7 +147,7 @@ type UpdateTeamsAccountRequest struct {
 
 // UpdateTeamsAccountResponse collects the response parameters for the UpdateTeamsAccount method.
 type UpdateTeamsAccountResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -156,7 +156,7 @@ func MakeUpdateTeamsAccountEndpoint(s service.UsersService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(UpdateTeamsAccountRequest)
 		id, e0 := s.UpdateTeamsAccount(ctx, req.Team, req.TeamID)
-		return UpdateTeamsAccountResponse{Id : id, E0: e0}, nil
+		return UpdateTeamsAccountResponse{Id: id, E0: e0}, nil
 	}
 }
 
@@ -172,7 +172,7 @@ type DeleteTeamsAccountRequest struct {
 
 // DeleteTeamsAccountResponse collects the response parameters for the DeleteTeamsAccount method.
 type DeleteTeamsAccountResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -181,7 +181,7 @@ func MakeDeleteTeamsAccountEndpoint(s service.UsersService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(DeleteTeamsAccountRequest)
 		id, e0 := s.DeleteTeamsAccount(ctx, req.TeamID)
-		return DeleteTeamsAccountResponse{Id : id, E0: e0}, nil
+		return DeleteTeamsAccountResponse{Id: id, E0: e0}, nil
 	}
 }
 
@@ -226,7 +226,7 @@ type AddUserToTeamsAccountRequest struct {
 
 // AddUserToTeamsAccountResponse collects the response parameters for the AddUserToTeamsAccount method.
 type AddUserToTeamsAccountResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -252,7 +252,7 @@ type DeleteUserFromTeamsAccountRequest struct {
 
 // DeleteUserFromTeamsAccountResponse collects the response parameters for the DeleteUserFromTeamsAccount method.
 type DeleteUserFromTeamsAccountResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -279,7 +279,7 @@ type CreateGroupRequest struct {
 
 // CreateGroupResponse collects the response parameters for the CreateGroup method.
 type CreateGroupResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -305,7 +305,7 @@ type SubscribeToGroupRequest struct {
 
 // SubscribeToGroupResponse collects the response parameters for the SubscribeToGroup method.
 type SubscribeToGroupResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -331,7 +331,7 @@ type UnsubscribeFromGroupRequest struct {
 
 // UnsubscribeFromGroupResponse collects the response parameters for the UnsubscribeFromGroup method.
 type UnsubscribeFromGroupResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -357,7 +357,7 @@ type DeleteGroupRequest struct {
 
 // DeleteGroupResponse collects the response parameters for the DeleteGroup method.
 type DeleteGroupResponse struct {
-	E0 error `json:"e0"`
+	E0 error  `json:"e0"`
 	Id string `json:"id"`
 }
 
@@ -663,7 +663,7 @@ func (e Endpoints) DeleteGroup(ctx context.Context, groupID string, groupAdminID
 	if err != nil {
 		return
 	}
-	return response.(DeleteGroupResponse).Id,response.(DeleteGroupResponse).E0
+	return response.(DeleteGroupResponse).Id, response.(DeleteGroupResponse).E0
 }
 
 // UpdateGroup implements Service. Primarily useful in a client.

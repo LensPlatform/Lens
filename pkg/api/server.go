@@ -1,13 +1,13 @@
 package api
 
 import (
+	"github.com/LensPlatform/Lens/pkg/api/endpoint"
+	httpWrapper "github.com/LensPlatform/Lens/pkg/api/http"
 	"context"
 	"fmt"
+	_ "github.com/go-kit/kit/transport/http"
 	"github.com/swaggo/swag"
 	http "net/http"
-	"LensPlatform/Lens/pkg/api/endpoint"
-	httpWrapper "LensPlatform/Lens/pkg/api/http"
-	kitHttp "github.com/go-kit/kit/transport/http"
 
 	_ "net/http/pprof"
 	"os"
@@ -69,9 +69,9 @@ type Config struct {
 }
 
 type Server struct {
-	router *mux.Router
-	logger *zap.Logger
-	config *Config
+	router  *mux.Router
+	logger  *zap.Logger
+	config  *Config
 	handler http.Handler
 }
 

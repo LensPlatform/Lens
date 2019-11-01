@@ -1,7 +1,7 @@
 package endpoint
 
 import (
-	service "LensPlatform/Lens/pkg/api/service"
+	service "github.com/LensPlatform/Lens/pkg/api/service"
 	endpoint "github.com/go-kit/kit/endpoint"
 )
 

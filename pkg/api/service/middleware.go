@@ -72,49 +72,49 @@ func (l loggingMiddleware) DeleteTeamsAccount(ctx context.Context, teamID string
 }
 func (l loggingMiddleware) GetTeamsAccount(ctx context.Context, teamID string) (team interface{}, err error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "GetTeamsAccount"),zap.String("team", fmt.Sprintf("%v", team)),
+		l.logger.Info("method", zap.String("function", "GetTeamsAccount"), zap.String("team", fmt.Sprintf("%v", team)),
 			zap.String("teamID", teamID), zap.Any("err", err))
 	}()
 	return l.next.GetTeamsAccount(ctx, teamID)
 }
 func (l loggingMiddleware) AddUserToTeamsAccount(ctx context.Context, teamID string, userID string) (id string, e0 error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "AddUserToTeamsAccount"),zap.String("userID", userID),
+		l.logger.Info("method", zap.String("function", "AddUserToTeamsAccount"), zap.String("userID", userID),
 			zap.String("teamID", teamID), zap.Any("err", e0))
 	}()
 	return l.next.AddUserToTeamsAccount(ctx, teamID, userID)
 }
 func (l loggingMiddleware) DeleteUserFromTeamsAccount(ctx context.Context, teamID string, userID string) (id string, e0 error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "DeleteUserFromTeamsAccount"),zap.String("userID", userID),
+		l.logger.Info("method", zap.String("function", "DeleteUserFromTeamsAccount"), zap.String("userID", userID),
 			zap.String("teamID", teamID), zap.Any("err", e0))
 	}()
 	return l.next.DeleteUserFromTeamsAccount(ctx, teamID, userID)
 }
 func (l loggingMiddleware) CreateGroup(ctx context.Context, groupName string, groupType string, isPrivate bool) (id string, e0 error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "CreateGroup"),zap.String("groupName", groupName),
-			zap.String("groupType", groupType), zap.Bool("isPrivate", isPrivate),zap.Any("err", e0))
+		l.logger.Info("method", zap.String("function", "CreateGroup"), zap.String("groupName", groupName),
+			zap.String("groupType", groupType), zap.Bool("isPrivate", isPrivate), zap.Any("err", e0))
 	}()
 	return l.next.CreateGroup(ctx, groupName, groupType, isPrivate)
 }
 func (l loggingMiddleware) SubscribeToGroup(ctx context.Context, groupID string, ID string) (id string, e0 error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "SubscribeToGroup"),zap.String("id", ID),
+		l.logger.Info("method", zap.String("function", "SubscribeToGroup"), zap.String("id", ID),
 			zap.String("groupID", groupID), zap.Any("err", e0))
 	}()
 	return l.next.SubscribeToGroup(ctx, groupID, ID)
 }
 func (l loggingMiddleware) UnsubscribeFromGroup(ctx context.Context, groupID string, ID string) (id string, e0 error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "UnsubscribeFromGroup"),zap.String("id", ID),
+		l.logger.Info("method", zap.String("function", "UnsubscribeFromGroup"), zap.String("id", ID),
 			zap.String("groupID", groupID), zap.Any("err", e0))
 	}()
 	return l.next.UnsubscribeFromGroup(ctx, groupID, ID)
 }
 func (l loggingMiddleware) DeleteGroup(ctx context.Context, groupID string, groupAdminID string) (id string, e0 error) {
 	defer func() {
-		l.logger.Info("method", zap.String("function", "DeleteGroup"),zap.String("groupAdminID", groupAdminID),
+		l.logger.Info("method", zap.String("function", "DeleteGroup"), zap.String("groupAdminID", groupAdminID),
 			zap.String("groupID", groupID), zap.Any("err", e0))
 	}()
 	return l.next.DeleteGroup(ctx, groupID, groupAdminID)
