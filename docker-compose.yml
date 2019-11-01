@@ -1,0 +1,10 @@
+version: "2"
+services:
+  lens-user-service:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: always
+    volumes:
+      - .:/go/src/LensPlatform/Lens
+    container_name: Lens-User-Service
