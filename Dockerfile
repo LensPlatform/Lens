@@ -1,39 +1,12 @@
-FROM golang:1.13 as builder
+FROM golang
 
-RUN mkdir -p /podinfo/
+RUN mkdir -p /go/src/github.com/LensPlatform/Lens
 
-WORKDIR /podinfo
+ADD . /go/src/github.com/LensPlatform/Lens
+WORKDIR /go/src/github.com/LensPlatform/Lens
 
-COPY . .
+RUN go get -t -v ./...
+RUN go get github.com/canthefason/go-watcher
+RUN go install github.com/canthefason/go-watcher/cmd/watcher
 
-RUN go mod download
-
-RUN go test -v -race ./...
-
-RUN GIT_COMMIT=$(git rev-list -1 HEAD) && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w \
-    -X github.com/stefanprodan/podinfo/pkg/version.REVISION=${GIT_COMMIT}" \
-    -a -o bin/podinfo cmd/podinfo/*
-
-RUN GIT_COMMIT=$(git rev-list -1 HEAD) && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w \
-    -X github.com/stefanprodan/podinfo/pkg/version.REVISION=${GIT_COMMIT}" \
-    -a -o bin/podcli cmd/podcli/*
-
-FROM alpine:3.10
-
-RUN addgroup -S app \
-    && adduser -S -g app app \
-    && apk --no-cache add \
-    curl openssl netcat-openbsd
-
-WORKDIR /home/app
-
-COPY --from=builder /podinfo/bin/podinfo .
-COPY --from=builder /podinfo/bin/podcli /usr/local/bin/podcli
-COPY ./ui ./ui
-RUN chown -R app:app ./
-
-USER app
-
-CMD ["./podinfo"]
+ENTRYPOINT watcher -run github.com/LensPlatform/Lens/cmd/svc -watch github.com/LensPlatform/Lens

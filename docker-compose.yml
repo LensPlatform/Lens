@@ -1,10 +1,13 @@
 version: "2"
 services:
-  lens-user-service:
+  users-microservice-v1:
     build:
       context: .
       dockerfile: ./Dockerfile
+    container_name: users_microservice
+    ports:
+      - 8801:8085
+      - 8802:8804
     restart: always
     volumes:
-      - .:/go/src/LensPlatform/Lens
-    container_name: Lens-User-Service
+      - '.:/go/src/github.com/LensPlatform/Lens'
