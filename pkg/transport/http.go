@@ -1,36 +1,37 @@
 package transport
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"io/ioutil"
 	"net/http"
-	"net/url"
-
+	"github.com/go-kit/kit/metrics"
+	"github.com/gorilla/mux"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
+	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/tracing/opentracing"
+	_ "github.com/go-kit/kit/log"
+	_ "github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/tracing/zipkin"
-	"github.com/go-kit/kit/transport"
+	_ "github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
 
-	endpoint "github.com/go-kit/kit/endpoint"
+	_ "github.com/go-kit/kit/endpoint"
 
 	serviceendpoint "github.com/LensPlatform/Lens/pkg/endpoint"
-	"github.com/LensPlatform/Lens/pkg/service"
+	service "github.com/LensPlatform/Lens/pkg/service"
 )
 
 // NewHTTPHandler returns an HTTP handler that makes a set of endpoints
 // available on predefined paths.
-func NewHTTPHandler(endpoints serviceendpoint.Set, otTracer stdopentracing.Tracer,
-					zipkinTracer *stdzipkin.Tracer, logger log.Logger) http.Handler {
-	options := []httptransport.ServerOption{
-		httptransport.ServerErrorEncoder(errorEncoder),
-		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
+func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
+					duration metrics.Histogram, otTracer stdopentracing.Tracer,
+					zipkinTracer *stdzipkin.Tracer, logger *zap.Logger) http.Handler {
+	r := mux.NewRouter()
+	e := serviceendpoint.MakeServerEndpoints(s,logger, duration, otTracer, zipkinTracer)
+	var options = []httptransport.ServerOption{
+		httptransport.ServerErrorHandler(NewTransportHandler(logger)),
+		httptransport.ServerErrorEncoder(encodeError),
 	}
 
 	if zipkinTracer != nil {
@@ -42,88 +43,70 @@ func NewHTTPHandler(endpoints serviceendpoint.Set, otTracer stdopentracing.Trace
 		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
 	}
 
-	m := http.NewServeMux()
-	m.Handle("/create-user", httptransport.NewServer(
-		endpoints.CreateUserEndpoint,
-		decodeHTTPCreateUserRequest,
-		encodeHTTPGenericResponse,
-		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "CreateUser", logger)))...,
-	))
-	return m
+	// POST    /user/create-user                          creates a user profile
+	r.Methods("POST").Path("/user/create-user").Handler(httptransport.NewServer(
+		e.CreateUserEndpoint,
+		decodeCreateUserRequest,
+		encodeResponse,
+		options...,
+		))
+
+	return r
 }
 
-func copyURL(base *url.URL, path string) *url.URL {
-	next := *base
-	next.Path = path
-	return &next
+// errorer is implemented by all concrete response types that may contain
+// errors. It allows us to change the HTTP response code without needing to
+// trigger an endpoint (transport-level) error. For more information, read the
+// big comment in endpoints.go.
+type errorer interface {
+	error() error
 }
 
-func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
-	w.WriteHeader(err2code(err))
-	_ = json.NewEncoder(w).Encode(errorWrapper{Error: err.Error()})
-}
-
-func err2code(err error) int {
-	switch err {
-	case service.NullUser:
-		return http.StatusBadRequest
-	}
-	return http.StatusInternalServerError
-}
-
-func errorDecoder(r *http.Response) error {
-	var w errorWrapper
-	if err := json.NewDecoder(r.Body).Decode(&w); err != nil {
-		return err
-	}
-	return errors.New(w.Error)
-}
-
-type errorWrapper struct {
-	Error string `json:"error"`
-}
-
-// decodeHTTPSumRequest is a transport/http.DecodeRequestFunc that decodes a
-// JSON-encoded CreateUser request from the HTTP request body. Primarily useful in a
-// server.
-func decodeHTTPCreateUserRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var req serviceendpoint.CreateUserRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	return req, err
-}
-
-// decodeHTTPSumResponse is a transport/http.DecodeResponseFunc that decodes a
-// JSON-encoded CreateUser response from the HTTP response body. If the response has a
-// non-200 status code, we will interpret that as an error and attempt to decode
-// the specific error message from the response body. Primarily useful in a
-// client.
-func decodeHTTPCreateUserResponse(_ context.Context, r *http.Response) (interface{}, error) {
-	if r.StatusCode != http.StatusOK {
-		return nil, errors.New(r.Status)
-	}
-	var resp serviceendpoint.CreateUserResponse
-	err := json.NewDecoder(r.Body).Decode(&resp)
-	return resp, err
-}
-
-// encodeHTTPGenericRequest is a transport/http.EncodeRequestFunc that
-// JSON-encodes any request to the request body. Primarily useful in a client.
-func encodeHTTPGenericRequest(_ context.Context, r *http.Request, request interface{}) error {
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(request); err != nil {
-		return err
-	}
-	r.Body = ioutil.NopCloser(&buf)
-	return nil
-}
-
-// encodeHTTPGenericResponse is a transport/http.EncodeResponseFunc that encodes
-// the response as JSON to the response writer. Primarily useful in a server.
-func encodeHTTPGenericResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
-	if f, ok := response.(endpoint.Failer); ok && f.Failed() != nil {
-		errorEncoder(ctx, f.Failed(), w)
+// encodeResponse is the common method to encode all response types to the
+// client. I chose to do it this way because, since we're using JSON, there's no
+// reason to provide anything more specific. It's certainly possible to
+// specialize on a per-response (per-method) basis.
+func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+	if e, ok := response.(errorer); ok && e.error() != nil {
+		// Not a Go kit transport error, but a business-logic error.
+		// Provide those as HTTP errors.
+		encodeError(ctx, e.error(), w)
 		return nil
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	return json.NewEncoder(w).Encode(response)
 }
+
+func encodeError(_ context.Context, err error, w http.ResponseWriter) {
+	if err == nil {
+		panic("encodeError with nil error")
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(codeFrom(err))
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"error": err.Error(),
+	})
+}
+
+func codeFrom(err error) int {
+	switch err {
+	case ErrNotFound:
+		return http.StatusNotFound
+	case ErrAlreadyExists, ErrInconsistentIDs:
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// decodeHTTPSumRequest is a transport/http.DecodeRequestFunc that decodes a
+// JSON-encoded CreateUser request from the HTTP request body. Primarily useful in a
+// server.
+func decodeCreateUserRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req serviceendpoint.CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+

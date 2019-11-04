@@ -8,6 +8,7 @@ services:
     ports:
       - 8801:8085
       - 8802:8804
+      - 8803:8080
     restart: always
     volumes:
       - '.:/go/src/github.com/LensPlatform/Lens'

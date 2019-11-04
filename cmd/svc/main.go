@@ -64,7 +64,7 @@ func main() {
 			var (
 				err         error
 				hostPort    = "localhost:80"
-				serviceName = "addsvc"
+				serviceName = "user"
 				reporter    = zipkinhttp.NewReporter(*zipkinURL)
 			)
 			defer reporter.Close()
@@ -151,9 +151,9 @@ func main() {
 	// the interfaces that the transports expect. Note that we're not binding
 	// them to ports or anything yet; we'll do that next.
 	var (
-		service        = service.New(zapLogger,  request, success, failed)
-		endpoints      = endpoint.New(service, zapLogger, duration, tracer, zipkinTracer)
-		httpHandler    = transport.NewHTTPHandler(endpoints, tracer, zipkinTracer, logger)
+		userservice        = service.New(zapLogger,  request, success, failed)
+		endpoints      = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)
+		httpHandler    = transport.NewHTTPHandler(userservice,endpoints,duration, tracer, zipkinTracer, zapLogger)
 	)
 
 	// Now we're to the part of the func main where we want to start actually
@@ -175,6 +175,7 @@ func main() {
 		// routes, and so on.
 		debugListener, err := net.Listen("tcp", *debugAddr)
 		if err != nil {
+			zapLogger.Info("service connected",zap.String("transport", "debug/HTTP"), zap.String("during", "Listen"), zap.Any("error", err))
 			logger.Log("transport", "debug/HTTP", "during", "Listen", "err", err)
 			os.Exit(1)
 		}

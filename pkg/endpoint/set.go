@@ -24,9 +24,21 @@ import (
 	"github.com/go-kit/kit/tracing/zipkin"
 )
 
-// Set collects all of the endpoints that compose an user service. It's meant to
-// be used as a helper struct, to collect all of the endpoints into a single
-// parameter.
+
+// Endpoints collects all of the endpoints that compose a profile service. It's
+// meant to be used as a helper struct, to collect all of the endpoints into a
+// single parameter.
+//
+// In a server, it's useful for functions that need to operate on a per-endpoint
+// basis. For example, you might pass an Endpoints to a function that produces
+// an http.Handler, with each method (endpoint) wired up to a specific path. (It
+// is probably a mistake in design to invoke the Service methods on the
+// Endpoints struct in a server.)
+//
+// In a client, it's useful to collect individually constructed endpoints into a
+// single type that implements the Service interface. For example, you might
+// construct individual endpoints using transport/http.NewClient, combine them
+// into an Endpoints, and return it to the caller as a Service.
 type Set struct {
 	CreateUserEndpoint endpoint.Endpoint
 }
@@ -34,27 +46,40 @@ type Set struct {
 // New returns a Set that wraps the provided server, and wires in all of the
 // expected endpoint middlewares via the various parameters.
 func New(svc service.Service, logger *zap.Logger, duration metrics.Histogram, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) Set {
-	var createUserEndpoint endpoint.Endpoint
-	{
-		createUserEndpoint = MakeSumEndpoint(svc)
-		createUserEndpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 1))(createUserEndpoint)
-		createUserEndpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(createUserEndpoint)
-		createUserEndpoint = opentracing.TraceServer(otTracer, "CreateUser")(createUserEndpoint)
-		if zipkinTracer != nil {
-			createUserEndpoint = zipkin.TraceEndpoint(zipkinTracer, "CreateUser")(createUserEndpoint)
-		}
-		createUserEndpoint = LoggingMiddleware(logger)(createUserEndpoint)
-		createUserEndpoint = InstrumentingMiddleware(duration.With("method", "CreateUser"))(createUserEndpoint)
-	}
+	return MakeServerEndpoints(svc, logger, duration,
+		otTracer, zipkinTracer)
+}
 
+// MakeServerEndpoints returns an Endpoints struct where each endpoint invokes
+// the corresponding method on the provided service. Useful in a profilesvc
+// server.
+func MakeServerEndpoints(s service.Service, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer) Set {
 	return Set{
-		CreateUserEndpoint:    createUserEndpoint,
+		CreateUserEndpoint:   MakeCreateUserEndpoint(s, logger, duration,
+			otTracer, zipkinTracer, "CreateUser"),
 	}
+}
+
+// ============================== Endpoint Definitions ======================
+// CreateUserEndpoint constructs a Sum endpoint wrapping the service.
+func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
+
+		createUserEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(CreateUserRequest)
+		id, err := s.CreateUser(ctx, req)
+		return CreateUserResponse{Id: id, Err: err}, nil
+	}
+	return WrapMiddlewares(createUserEndpoint, logger,
+			duration, otTracer, zipkinTracer, operationName)
 }
 
 // ============================== Endpoint Service Interface Impl  ======================
 // CreateUser implements the service interface so that set may be used as a service.
-func (s Set) CreateUser(ctx context.Context, user interface{})(id string, err error){
+func (s Set) CreateUser(ctx context.Context, user service.User)(id string, err error){
 	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{user:user})
 	if err != nil {
 		return "", err
@@ -63,14 +88,19 @@ func (s Set) CreateUser(ctx context.Context, user interface{})(id string, err er
 	return response.Id, response.Err
 }
 
-// ============================== Endpoint Definitions ======================
-// MakeSumEndpoint constructs a Sum endpoint wrapping the service.
-func MakeSumEndpoint(s service.Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(CreateUserRequest)
-		id, err := s.CreateUser(ctx, req)
-		return CreateUserResponse{Id: id, Err: err}, nil
+func WrapMiddlewares(endpoint endpoint.Endpoint, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint{
+
+	endpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 1))(endpoint)
+	endpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(endpoint)
+	endpoint = opentracing.TraceServer(otTracer, operationName)(endpoint)
+	if zipkinTracer != nil {
+		endpoint = zipkin.TraceEndpoint(zipkinTracer, operationName)(endpoint)
 	}
+	endpoint = LoggingMiddleware(logger)(endpoint)
+	endpoint = InstrumentingMiddleware(duration.With("method", operationName))(endpoint)
+	return endpoint
 }
 
 // ============================== Endpoint Fail Time Assertions ======================
@@ -84,7 +114,7 @@ var (
 
 // CreateUserRequest collects the request parameters for the CreateUser method.
 type CreateUserRequest struct {
-	user interface{}
+	user service.User
 }
 
 // ============================== Endpoint Response Definitions ======================
@@ -92,10 +122,9 @@ type CreateUserRequest struct {
 // CreateUserResponse collects the response values for the CreateUser method.
 type CreateUserResponse struct {
 	Id   string   `json:"id"`
-	Err error `json:"-"` // should be intercepted by Failed/errorEncoder
+	Err error `json:"err, omitempty"` // should be intercepted by Failed/errorEncoder
 }
 
 // ============================== Endpoint Response Failed Definitions ======================
-
-// Failed implements endpoint.Failer
+func (r CreateUserResponse) error() error { return r.Err }
 func (r CreateUserResponse) Failed() error { return r.Err }
