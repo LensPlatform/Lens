@@ -24,14 +24,18 @@ type loggingMiddleware struct {
 	next Service
 }
 // A logging wrapper around the create user service implementation
-func (mw loggingMiddleware) CreateUser(ctx context.Context, user interface{}) (id string, err error) {
+func (mw loggingMiddleware) CreateUser(ctx context.Context, user User) (id string, err error) {
 	defer func(){
-		mw.logger.Info("Request Started",
+		mw.logger.Info("Request Completed",
 			zap.String("method", "CreateUser"),
 			zap.Any("user", user),
 			zap.String("err", err.Error()))
 	}()
-	return mw.next.CreateUser(ctx, user)
+	id, err = mw.next.CreateUser(ctx, user)
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 
@@ -58,7 +62,7 @@ type instrumentingMiddleware struct {
 }
 
 // An instrumenting wrapper around the create user service implementation
-func (mw instrumentingMiddleware) CreateUser(ctx context.Context, user interface{}) (id string, err error) {
+func (mw instrumentingMiddleware) CreateUser(ctx context.Context, user User) (id string, err error) {
 	mw.UsersCreateRequests.Add(1)
 	response, err := mw.next.CreateUser(ctx, user)
 

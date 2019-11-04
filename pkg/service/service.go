@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/go-kit/kit/metrics"
 	"go.uber.org/zap"
@@ -13,7 +14,7 @@ import (
 // it takes as input an type interface and returns the object id of the created
 // user and any error encountered that may have occurred during this transaction
 type Service interface {
-	CreateUser(ctx context.Context, user interface{})(id string, err error)
+	CreateUser(ctx context.Context, user User)(id string, err error)
 }
 
 // User represents a single user profile
@@ -94,13 +95,9 @@ type basicService struct{
 // CreateUser implements service.
 //
 // Creates a user in the backend store given some user object of interface type
-func (s basicService) CreateUser(ctx context.Context, user interface{}) (id string, err error) {
-	if user == nil {
-		return "",ErrNoUserProvided
-	}
+func (s basicService) CreateUser(ctx context.Context, user User) (id string, err error) {
 	// Todo: Implement logic for user service
 	s.logger.Info("Hello")
-	// panic("Implement me")
-	return "hello", nil
+	return "", errors.New("Not Implemented")
 }
 

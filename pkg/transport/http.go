@@ -33,7 +33,6 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 		httptransport.ServerErrorHandler(NewTransportHandler(logger)),
 		httptransport.ServerErrorEncoder(encodeError),
 	}
-
 	if zipkinTracer != nil {
 		// Zipkin HTTP Server Trace can either be instantiated per endpoint with a
 		// provided operation name or a global tracing service can be instantiated
@@ -74,7 +73,11 @@ func encodeResponse(ctx context.Context, w http.ResponseWriter, response interfa
 		return nil
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	return json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func encodeError(_ context.Context, err error, w http.ResponseWriter) {

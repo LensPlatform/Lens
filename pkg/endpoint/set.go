@@ -70,7 +70,7 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 
 		createUserEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateUserRequest)
-		id, err := s.CreateUser(ctx, req)
+		id, err := s.CreateUser(ctx, req.User)
 		return CreateUserResponse{Id: id, Err: err}, nil
 	}
 	return WrapMiddlewares(createUserEndpoint, logger,
@@ -80,7 +80,7 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 // ============================== Endpoint Service Interface Impl  ======================
 // CreateUser implements the service interface so that set may be used as a service.
 func (s Set) CreateUser(ctx context.Context, user service.User)(id string, err error){
-	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{user:user})
+	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{User:user})
 	if err != nil {
 		return "", err
 	}
@@ -114,7 +114,7 @@ var (
 
 // CreateUserRequest collects the request parameters for the CreateUser method.
 type CreateUserRequest struct {
-	user service.User
+	User service.User
 }
 
 // ============================== Endpoint Response Definitions ======================

@@ -33,8 +33,8 @@ func LoggingMiddleware(logger *zap.Logger) endpoint.Middleware {
 		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 
 			defer func(begin time.Time) {
-				logger.Info("Transport Error",
-					zap.String("transport_error", err.Error()),
+				logger.Info("Transport Log",
+					zap.Any("error", err),
 					zap.Any("invocation duration", time.Since(begin)))
 			}(time.Now())
 
