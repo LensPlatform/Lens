@@ -70,7 +70,12 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 
 		createUserEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateUserRequest)
+		logger.Info("User", zap.Any("user requesting creation", request))
 		id, err := s.CreateUser(ctx, req.User)
+		logger.Info("Created user id", zap.String("Id", id))
+		if err != nil {
+			logger.Error(err.Error())
+		}
 		return CreateUserResponse{Id: id, Err: err}, nil
 	}
 	return WrapMiddlewares(createUserEndpoint, logger,
@@ -122,7 +127,7 @@ type CreateUserRequest struct {
 // CreateUserResponse collects the response values for the CreateUser method.
 type CreateUserResponse struct {
 	Id   string   `json:"id"`
-	Err error `json:"err, omitempty"` // should be intercepted by Failed/errorEncoder
+	Err error `json:"err"` // should be intercepted by Failed/errorEncoder
 }
 
 // ============================== Endpoint Response Failed Definitions ======================

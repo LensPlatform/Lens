@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="postgresql://doadmin:show-password@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb?sslmode=require" uuid="76ac4175-3dc6-4165-93c9-3b56fda2f1f4">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>postgresql://doadmin:show-password@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb?sslmode=require</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="defaultdb@backend-datastore-do-user-6612421-0.db.ondigitalocean.com" uuid="f2888950-10f5-422c-9571-6cae65344c83">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb</jdbc-url>
+    </data-source>
+  </component>
+</project>

@@ -10,11 +10,14 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	lightstep "github.com/lightstep/lightstep-tracer-go"
+	"database/sql"
+
+	_ "github.com/lib/pq"
+	"github.com/lightstep/lightstep-tracer-go"
 	"github.com/oklog/oklog/pkg/group"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
-	zipkin "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -24,7 +27,6 @@ import (
 	"sourcegraph.com/sourcegraph/appdash"
 	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
 
@@ -48,15 +50,13 @@ func main() {
 		appdashAddr    = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
 	)
 	fs.Usage = usageFor(fs, os.Args[0]+" [flags]")
-	fs.Parse(os.Args[1:])
+	_ = fs.Parse(os.Args[1:])
 
-	// Create a single logger, which we'll use and give to other components.
-	var logger log.Logger
-	{
-		logger = log.NewLogfmtLogger(os.Stderr)
-		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
-		logger = log.With(logger, "caller", log.DefaultCaller)
-	}
+	// configure logging
+	zapLogger, _ := initZap(viper.GetString("level"))
+	defer zapLogger.Sync()
+	stdLog := zap.RedirectStdLog(zapLogger)
+	defer stdLog()
 
 	var zipkinTracer *zipkin.Tracer
 	{
@@ -71,11 +71,12 @@ func main() {
 			zEP, _ := zipkin.NewEndpoint(serviceName, hostPort)
 			zipkinTracer, err = zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(zEP))
 			if err != nil {
-				logger.Log("err", err)
+				zapLogger.Error(err.Error())
 				os.Exit(1)
 			}
 			if !(*zipkinBridge) {
-				logger.Log("tracer", "Zipkin", "type", "Native", "URL", *zipkinURL)
+				zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
+								zap.String("URL", *zipkinURL))
 			}
 		}
 	}
@@ -85,17 +86,19 @@ func main() {
 	var tracer stdopentracing.Tracer
 	{
 		if *zipkinBridge && zipkinTracer != nil {
-			logger.Log("tracer", "Zipkin", "type", "OpenTracing", "URL", *zipkinURL)
+			zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
+				zap.String("URL", *zipkinURL))
 			tracer = zipkinot.Wrap(zipkinTracer)
 			zipkinTracer = nil // do not instrument with both native tracer and opentracing bridge
 		} else if *lightstepToken != "" {
-			logger.Log("tracer", "LightStep") // probably don't want to print out the token :)
+			zapLogger.Info("Tracer", zap.String("type of tracer", "LightStep"))
 			tracer = lightstep.NewTracer(lightstep.Options{
 				AccessToken: *lightstepToken,
 			})
 			defer lightstep.FlushLightStepTracer(tracer)
 		} else if *appdashAddr != "" {
-			logger.Log("tracer", "Appdash", "addr", *appdashAddr)
+			zapLogger.Info("Tracer", zap.String("type of tracer", "Appdash"),
+				zap.String("Appdash", *appdashAddr))
 			tracer = appdashot.NewTracer(appdash.NewRemoteCollector(*appdashAddr))
 		} else {
 			tracer = stdopentracing.GlobalTracer() // no-op
@@ -138,11 +141,22 @@ func main() {
 	}
 	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
 
-	// configure logging
-	zapLogger, _ := initZap(viper.GetString("level"))
-	defer zapLogger.Sync()
-	stdLog := zap.RedirectStdLog(zapLogger)
-	defer stdLog()
+	// configure sql db connection
+	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
+	db, err := sql.Open("postgres", connString)
+	if err != nil {
+		zapLogger.Error(err.Error())
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Check if DB connection can be made, only for logging purposes, should not fail/exit
+	err = db.Ping()
+	if err != nil {
+		zapLogger.Error("error", zap.Any("unable to connect to database", err))
+	}
+
+	zapLogger.Info("successfully connected to database",)
 
 	// Build the layers of the service "onion" from the inside out. First, the
 	// business logic service; then, the set of endpoints that wrap the service;
@@ -151,7 +165,7 @@ func main() {
 	// the interfaces that the transports expect. Note that we're not binding
 	// them to ports or anything yet; we'll do that next.
 	var (
-		userservice        = service.New(zapLogger,  request, success, failed)
+		userservice        = service.New(zapLogger, db, request, success, failed)
 		endpoints      = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)
 		httpHandler    = transport.NewHTTPHandler(userservice,endpoints,duration, tracer, zipkinTracer, zapLogger)
 	)
@@ -176,11 +190,10 @@ func main() {
 		debugListener, err := net.Listen("tcp", *debugAddr)
 		if err != nil {
 			zapLogger.Info("service connected",zap.String("transport", "debug/HTTP"), zap.String("during", "Listen"), zap.Any("error", err))
-			logger.Log("transport", "debug/HTTP", "during", "Listen", "err", err)
 			os.Exit(1)
 		}
 		g.Add(func() error {
-			logger.Log("transport", "debug/HTTP", "addr", *debugAddr)
+			zapLogger.Info("service connected",zap.String("transport", "debug/HTTP"), zap.String("addr", *debugAddr))
 			return http.Serve(debugListener, http.DefaultServeMux)
 		}, func(error) {
 			debugListener.Close()
@@ -190,11 +203,11 @@ func main() {
 		// The HTTP listener mounts the Go kit HTTP handler we created.
 		httpListener, err := net.Listen("tcp", *httpAddr)
 		if err != nil {
-			_ = logger.Log("transport", "HTTP", "during", "Listen", "err", err)
+			zapLogger.Info("transport",zap.String("transport", "debug/HTTP"), zap.Any("err", err))
 			os.Exit(1)
 		}
 		g.Add(func() error {
-			_ = logger.Log("transport", "HTTP", "addr", *httpAddr)
+			zapLogger.Info("transport",zap.String("transport", "/HTTP"), zap.String("addr", *httpAddr))
 			return http.Serve(httpListener, httpHandler)
 		}, func(error) {
 			_ = httpListener.Close()
@@ -216,7 +229,7 @@ func main() {
 			close(cancelInterrupt)
 		})
 	}
-	logger.Log("exit", g.Run())
+	zapLogger.Info("exit", zap.Any("exiting process", g.Run()))
 }
 
 func initZap(logLevel string) (*zap.Logger, error) {

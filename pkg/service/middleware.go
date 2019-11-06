@@ -31,6 +31,7 @@ func (mw loggingMiddleware) CreateUser(ctx context.Context, user User) (id strin
 			zap.Any("user", user),
 			zap.String("err", err.Error()))
 	}()
+
 	id, err = mw.next.CreateUser(ctx, user)
 	if err != nil {
 		return "", err

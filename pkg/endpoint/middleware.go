@@ -39,7 +39,6 @@ func LoggingMiddleware(logger *zap.Logger) endpoint.Middleware {
 			}(time.Now())
 
 			return next(ctx, request)
-
 		}
 	}
 }
