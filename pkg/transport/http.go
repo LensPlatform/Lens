@@ -43,12 +43,33 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 	}
 
 	// POST    /user/create-user                          creates a user profile
+	// GET    /user/username/:username                         Gets a user profile by username
+	// GET    /user/:id                         Gets a user profile by id
+	// GET    /user/email/:email                         Gets a user profile by email
 	r.Methods("POST").Path("/user/create-user").Handler(httptransport.NewServer(
 		e.CreateUserEndpoint,
 		decodeCreateUserRequest,
 		encodeResponse,
 		options...,
 		))
+	r.Methods("GET").Path("/user/username/{username}").Handler(httptransport.NewServer(
+		e.GetUserByUsernameEndpoint,
+		decodeGetUserRequestByUsername,
+		encodeResponse,
+		options...,
+	))
+	r.Methods("GET").Path("/user/{id}").Handler(httptransport.NewServer(
+		e.GetUserByIdEndpoint,
+		decodeGetUserRequestById,
+		encodeResponse,
+		options...,
+	))
+	r.Methods("GET").Path("/user/email/{email}").Handler(httptransport.NewServer(
+		e.GetUserByEmailEndpoint,
+		decodeGetUserRequestByEmail,
+		encodeResponse,
+		options...,
+	))
 
 	return r
 }
@@ -112,4 +133,42 @@ func decodeCreateUserRequest(_ context.Context, r *http.Request) (interface{}, e
 	}
 	return req, nil
 }
+
+func decodeGetUserRequestById(_ context.Context, r *http.Request) (interface{}, error) {
+	req, err := decodeGetUserRequest(r, "id")
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func decodeGetUserRequestByEmail(_ context.Context, r *http.Request) (interface{}, error) {
+	req, err := decodeGetUserRequest(r, "email")
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func decodeGetUserRequestByUsername(_ context.Context, r *http.Request) (interface{}, error) {
+	req, err := decodeGetUserRequest(r, "username")
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func decodeGetUserRequest(r *http.Request, param string) (interface{}, error) {
+	var req serviceendpoint.GetUserRequest
+	vars := mux.Vars(r)
+
+	value, ok := vars[param]
+	if !ok {
+		return nil, ErrBadRouting
+	}
+	req.Param = value
+	return req, nil
+}
+
+
 

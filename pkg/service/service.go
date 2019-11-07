@@ -22,6 +22,9 @@ import (
 // user and any error encountered that may have occurred during this transaction
 type Service interface {
 	CreateUser(ctx context.Context, user User)(err error)
+	GetUserById(ctx context.Context, id string)(user User, err error)
+	GetUserByEmail(ctx context.Context, email string)(user User, err error)
+	GetUserByUsername(ctx context.Context, username string)(user User, err error)
 }
 
 // User represents a single user profile
@@ -91,12 +94,14 @@ type Subscriptions struct {
 var validate = validator.New()
 
 // New returns a basic Service with all of the expected middlewares wired in.
-func New(logger *zap.Logger, db *sql.DB, request, success, failed metrics.Counter) Service {
+func New(logger *zap.Logger, db *sql.DB, CreateUserRequest, successfulCreateUserReq,
+	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq metrics.Counter) Service {
 	var svc Service
 	{
 		svc = NewBasicService(db, logger)
 		svc = LoggingMiddleware(logger)(svc)
-		svc = InstrumentingMiddleware( request, success, failed )(svc)
+		svc = InstrumentingMiddleware(CreateUserRequest, successfulCreateUserReq,
+			failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq)(svc)
 	}
 	return svc
 }
@@ -111,6 +116,17 @@ type basicService struct{
 	dbConn *sql.DB
 }
 
+func (s basicService) GetUserById(ctx context.Context, id string) (user User, err error) {
+	return s.getUserFromQueryParam(ctx,GetUserByIdQuery,id)
+}
+
+func (s basicService) GetUserByEmail(ctx context.Context, email string) (user User, err error) {
+	return s.getUserFromQueryParam(ctx,GetUserByEmailQuery,email)
+}
+
+func (s basicService) GetUserByUsername(ctx context.Context, username string) (user User, err error) {
+	return s.getUserFromQueryParam(ctx,GetUserByUsernameQuery,username)
+}
 
 // CreateUser implements service.
 //
@@ -142,13 +158,12 @@ func (s basicService) CreateUser(ctx context.Context, currentuser User) (err err
 		return ErrUserAlreadyExists
 	}
 
-	// create a user id
-	currentuser.ID = uuid.New().String()
-
 	currentuser, err = s.validateAndHashPassword(currentuser)
 	if err != nil {
 		return err
 	}
+	// create a user id
+	currentuser.ID = uuid.New().String()
 
 	// Create user in database
 	_, err = s.dbConn.Exec(CreateUserQuery, currentuser.FirstName, currentuser.LastName,
@@ -251,6 +266,19 @@ func (s basicService) comparePasswords(hashedPwd string, plainPwd []byte) bool {
 		return false
 	}
 	return true
+}
+
+func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user User, err error){
+	err = s.dbConn.QueryRowContext(ctx, query, param).Scan(&user.ID,&user.FirstName, &user.LastName, &user.UserName, &user.Email,
+															&user.PassWord, &user.PassWordConfirmed,
+															&user.Age, &user.BirthDate, &user.PhoneNumber,&user.Addresses,
+															&user.Bio, &user.EducationalExperience,
+															&user.UserInterests, &user.Headline, &user.Intent, &user.UserSubscriptions)
+	if err != nil {
+		s.logger.Error(err.Error())
+		return User{}, err
+	}
+	return user, nil
 }
 
 

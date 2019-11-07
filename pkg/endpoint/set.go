@@ -41,6 +41,9 @@ import (
 // into an Endpoints, and return it to the caller as a Service.
 type Set struct {
 	CreateUserEndpoint endpoint.Endpoint
+	GetUserByIdEndpoint endpoint.Endpoint
+	GetUserByUsernameEndpoint endpoint.Endpoint
+	GetUserByEmailEndpoint endpoint.Endpoint
 }
 
 // New returns a Set that wraps the provided server, and wires in all of the
@@ -56,8 +59,10 @@ func MakeServerEndpoints(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer) Set {
 	return Set{
-		CreateUserEndpoint:   MakeCreateUserEndpoint(s, logger, duration,
-			otTracer, zipkinTracer, "CreateUser"),
+		CreateUserEndpoint:   MakeCreateUserEndpoint(s, logger, duration, otTracer, zipkinTracer, "CreateUser"),
+		GetUserByIdEndpoint:  MakeGetUserByIdEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserById"),
+		GetUserByUsernameEndpoint: MakeGetUserByUsernameEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByUsername"),
+		GetUserByEmailEndpoint: MakeGetUserByEmailEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByEmail"),
 	}
 }
 
@@ -80,6 +85,57 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 			duration, otTracer, zipkinTracer, operationName)
 }
 
+func MakeGetUserByIdEndpoint(s service.Service, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
+
+	getUserByIdEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(GetUserRequest)
+		logger.Info("User", zap.Any("attempting to get user by id", request))
+		user, err := s.GetUserById(ctx, req.Param)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		return GetUserResponse{Err: err, User:user}, nil
+	}
+	return WrapMiddlewares(getUserByIdEndpoint, logger,
+		duration, otTracer, zipkinTracer, operationName)
+}
+
+func MakeGetUserByUsernameEndpoint(s service.Service, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
+
+	getUserByUsernameEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(GetUserRequest)
+		logger.Info("User", zap.Any("attempting to get user by username", request))
+		user, err := s.GetUserByUsername(ctx, req.Param)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		return GetUserResponse{Err: err, User:user}, nil
+	}
+	return WrapMiddlewares(getUserByUsernameEndpoint, logger,
+		duration, otTracer, zipkinTracer, operationName)
+}
+
+func MakeGetUserByEmailEndpoint(s service.Service, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
+
+	getUserByEmailEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(GetUserRequest)
+		logger.Info("User", zap.Any("attempting to get user by email", request))
+		user, err := s.GetUserByEmail(ctx, req.Param)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		return GetUserResponse{Err: err, User:user}, nil
+	}
+	return WrapMiddlewares(getUserByEmailEndpoint, logger,
+		duration, otTracer, zipkinTracer, operationName)
+}
+
 // ============================== Endpoint Service Interface Impl  ======================
 // CreateUser implements the service interface so that set may be used as a service.
 func (s Set) CreateUser(ctx context.Context, user service.User)(err error){
@@ -89,6 +145,33 @@ func (s Set) CreateUser(ctx context.Context, user service.User)(err error){
 	}
 	response := resp.(CreateUserResponse)
 	return response.Err
+}
+
+func (s Set) GetUserById(ctx context.Context, id string)(user service.User, err error){
+	resp, err := s.GetUserByIdEndpoint(ctx, GetUserRequest{Param:id})
+	response := resp.(GetUserResponse)
+	if err != nil {
+		return response.User, err
+	}
+	return response.User, nil
+}
+
+func (s Set) GetUserByEmail(ctx context.Context, email string)(user service.User, err error){
+	resp, err := s.GetUserByEmailEndpoint(ctx, GetUserRequest{Param:email})
+	response := resp.(GetUserResponse)
+	if err != nil {
+		return response.User, err
+	}
+	return response.User, nil
+}
+
+func (s Set) GetUserByUsername(ctx context.Context, username string)(user service.User, err error){
+	resp, err := s.GetUserByUsernameEndpoint(ctx, GetUserRequest{Param:username})
+	response := resp.(GetUserResponse)
+	if err != nil {
+		return response.User, err
+	}
+	return response.User, nil
 }
 
 func WrapMiddlewares(endpoint endpoint.Endpoint, logger *zap.Logger,
@@ -111,6 +194,7 @@ func WrapMiddlewares(endpoint endpoint.Endpoint, logger *zap.Logger,
 // compile time assertions for our response types implementing endpoint.Failer.
 var (
 	_ endpoint.Failer = CreateUserResponse{}
+	_ endpoint.Failer = GetUserResponse{}
 )
 
 // ============================== Endpoint Request Definitions ======================
@@ -120,6 +204,10 @@ type CreateUserRequest struct {
 	User service.User
 }
 
+type GetUserRequest struct {
+	Param string
+}
+
 // ============================== Endpoint Response Definitions ======================
 
 // CreateUserResponse collects the response values for the CreateUser method.
@@ -127,6 +215,13 @@ type CreateUserResponse struct {
 	Err error `json:"err"` // should be intercepted by Failed/errorEncoder
 }
 
+type GetUserResponse struct {
+	Err error `json:"err"`
+	User service.User `json:"user"`
+}
+
 // ============================== Endpoint Response Failed Definitions ======================
 func (r CreateUserResponse) error() error { return r.Err }
 func (r CreateUserResponse) Failed() error { return r.Err }
+func (r GetUserResponse) error() error { return r.Err }
+func (r GetUserResponse) Failed() error { return r.Err }

@@ -107,26 +107,44 @@ func main() {
 
 	// Create the (sparse) metrics we'll use in the service. They, too, are
 	// dependencies that we pass to components that use them.
-	var  request, success, failed  metrics.Counter
+	var  CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq metrics.Counter
 	{
 		// Business-level metrics.
-		request = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		CreateUserRequest = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "users",
 			Subsystem: "users",
 			Name:      "create_user_requests",
 			Help:      "Total count of create user requests via the CreateUser method.",
 		}, []string{})
-		success = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		successfulCreateUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "users",
 			Subsystem: "users",
 			Name:      "create_user_success_ops",
 			Help:      "Total count of successful create user requests via the CreateUser method.",
 		}, []string{})
-		failed = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		failedCreateUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "users",
 			Subsystem: "users",
 			Name:      "create_user_failed_ops",
 			Help:      "Total count of failed create user requests via the CreateUser method.",
+		}, []string{})
+		getUserRequests = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "get_user_requests",
+			Help:      "Total count of get user requests.",
+		}, []string{})
+		successfulGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "get_user_requests_success_ops",
+			Help:      "Total count of successful get user requests.",
+		}, []string{})
+		failedGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "get_user_requests_failed_ops",
+			Help:      "Total count of failed get user requests.",
 		}, []string{})
 	}
 	var duration metrics.Histogram
@@ -165,7 +183,8 @@ func main() {
 	// the interfaces that the transports expect. Note that we're not binding
 	// them to ports or anything yet; we'll do that next.
 	var (
-		userservice        = service.New(zapLogger, db, request, success, failed)
+		userservice        = service.New(zapLogger, db, CreateUserRequest, successfulCreateUserReq,
+			failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq)
 		endpoints      = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)
 		httpHandler    = transport.NewHTTPHandler(userservice,endpoints,duration, tracer, zipkinTracer, zapLogger)
 	)

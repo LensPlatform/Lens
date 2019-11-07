@@ -11,6 +11,7 @@ var (
 	ErrInconsistentIDs = errors.New("inconsistent IDs")
 	ErrAlreadyExists   = errors.New("already exists")
 	ErrNotFound        = errors.New("not found")
+	ErrBadRouting = errors.New("inconsistent mapping between route and handler (programmer error)")
 )
 
 type Handler struct {
