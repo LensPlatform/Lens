@@ -6,7 +6,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"unsafe"
 
 	"github.com/go-kit/kit/metrics"
@@ -22,7 +21,7 @@ import (
 // it takes as input an type interface and returns the object id of the created
 // user and any error encountered that may have occurred during this transaction
 type Service interface {
-	CreateUser(ctx context.Context, user User)(id string, err error)
+	CreateUser(ctx context.Context, user User)(err error)
 }
 
 // User represents a single user profile
@@ -50,14 +49,14 @@ type User struct {
 type JsonEmbeddable struct {}
 
 type Address struct {
-	*JsonEmbeddable
+	JsonEmbeddable
 	City string `json:"city" validate:"required"`
 	State string `json:"state" validate:"required"`
 	Country string `json:"country" validate:"required"`
 }
 
 type Education struct{
-	*JsonEmbeddable
+	JsonEmbeddable
 	MostRecentInstitutionName string `json:"most_recent_institution_name" validate:"required"`
 	HighestDegreeEarned string `json:"highest_degree_earned" validate:"required"`
 	Graduated bool `json:"graduated" validate:"required"`
@@ -67,22 +66,24 @@ type Education struct{
 }
 
 type Interests struct {
-	*JsonEmbeddable
+	JsonEmbeddable
 	Industry []Industry `json:"industries_of_interest" validate:"omitempty"`
 	Topic []Topic `json:"topics_of_interest" validate:"omitempty"`
 }
 
 type Topic struct{
+	JsonEmbeddable
 	TopicName string `json:"topic_name" validate:"required"`
 	TopicType string `json:"topic_type" validate:"required"`
 }
 
 type Industry struct {
+	JsonEmbeddable
 	IndustryName string `json:"industry_name" validate:"required"`
 }
 
 type Subscriptions struct {
-	*JsonEmbeddable
+	JsonEmbeddable
 	SubscriptionName string `json:"subscription_name" validate:"required"`
 	Subscribe bool `json:"subscribe" validate:"required"`
 }
@@ -114,60 +115,55 @@ type basicService struct{
 // CreateUser implements service.
 //
 // Creates a user in the backend store given some user object of interface type
-func (s basicService) CreateUser(ctx context.Context, currentuser User) (id string, err error) {
+func (s basicService) CreateUser(ctx context.Context, currentuser User) (err error) {
 	// check for proper input argument
 	if unsafe.Sizeof(currentuser) == 0 {
-		return "", ErrNoUserProvided
+		return ErrNoUserProvided
 	}
 
 	err = s.validateUser(err, currentuser)
 	if err != nil{
-		return "", err
+		return err
 	}
 
-	/*
 	// check if user exists already in data store based on
 	// id, user name, and email address
-	var presentUser User
-	err = s.dbConn.QueryRow(CheckIfEmailAlreadyExists, currentuser.Email).Scan(&presentUser)
+	rows, err := s.dbConn.QueryContext(ctx, CheckIfUserAlreadyExistQuery,
+		currentuser.UserName, currentuser.Email)
 
 	if err != nil {
 		s.logger.Error(err.Error())
-		return "", err
+		return err
 	}
 
-	// if the obtained user does not have
-	// an email account or user name, we assume null
-	if presentUser.Email != ""{
-		s.logger.Error(ErrUserAlreadyExists.Error())
-		return "", ErrUserAlreadyExists
+	defer rows.Close()
+
+	if rows.Next() != false {
+		return ErrUserAlreadyExists
 	}
-	*/
 
 	// create a user id
 	currentuser.ID = uuid.New().String()
 
 	currentuser, err = s.validateAndHashPassword(currentuser)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	s.logger.Info("Validated User Password And Hashed")
-
-	var lastInsertId interface{}
 	// Create user in database
-	err = s.dbConn.QueryRow(CreateUserQuery, currentuser.FirstName, currentuser.LastName,
+	_, err = s.dbConn.Exec(CreateUserQuery, currentuser.FirstName, currentuser.LastName,
 						currentuser.UserName, currentuser.Email, currentuser.PassWord,
 						currentuser.PassWordConfirmed,currentuser.Age, currentuser.BirthDate,
-						currentuser.PhoneNumber).Scan(&lastInsertId)
-	s.logger.Info("FAILED")
+						currentuser.PhoneNumber, currentuser.Addresses, currentuser.EducationalExperience,
+						currentuser.UserInterests,currentuser.Headline,currentuser.Intent,
+						currentuser.UserSubscriptions, currentuser.Bio)
+
 	if err != nil {
 		s.logger.Error(err.Error())
-		return "", err
+		return err
 	}
 
-	s.logger.Info("Last insert id", zap.Any("id", lastInsertId))
-	return fmt.Sprintf("%v", lastInsertId), nil
+	return nil
 }
 
 func (s basicService) validateAndHashPassword(currentuser User) (user User, err error){
@@ -220,7 +216,7 @@ func (u JsonEmbeddable) Value() (driver.Value, error) {
 
 // User struct implements the sql.Scanner interface. This method
 // simply decodes a JSON-encoded value into the struct fields.
-func (u *JsonEmbeddable) Scan(value interface{}) error {
+func (u JsonEmbeddable) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")

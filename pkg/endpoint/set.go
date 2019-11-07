@@ -46,8 +46,7 @@ type Set struct {
 // New returns a Set that wraps the provided server, and wires in all of the
 // expected endpoint middlewares via the various parameters.
 func New(svc service.Service, logger *zap.Logger, duration metrics.Histogram, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) Set {
-	return MakeServerEndpoints(svc, logger, duration,
-		otTracer, zipkinTracer)
+	return MakeServerEndpoints(svc, logger, duration, otTracer, zipkinTracer)
 }
 
 // MakeServerEndpoints returns an Endpoints struct where each endpoint invokes
@@ -71,12 +70,11 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 		createUserEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateUserRequest)
 		logger.Info("User", zap.Any("user requesting creation", request))
-		id, err := s.CreateUser(ctx, req.User)
-		logger.Info("Created user id", zap.String("Id", id))
+		err = s.CreateUser(ctx, req.User)
 		if err != nil {
 			logger.Error(err.Error())
 		}
-		return CreateUserResponse{Id: id, Err: err}, nil
+		return CreateUserResponse{Err: err}, nil
 	}
 	return WrapMiddlewares(createUserEndpoint, logger,
 			duration, otTracer, zipkinTracer, operationName)
@@ -84,13 +82,13 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 
 // ============================== Endpoint Service Interface Impl  ======================
 // CreateUser implements the service interface so that set may be used as a service.
-func (s Set) CreateUser(ctx context.Context, user service.User)(id string, err error){
+func (s Set) CreateUser(ctx context.Context, user service.User)(err error){
 	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{User:user})
 	if err != nil {
-		return "", err
+		return err
 	}
 	response := resp.(CreateUserResponse)
-	return response.Id, response.Err
+	return response.Err
 }
 
 func WrapMiddlewares(endpoint endpoint.Endpoint, logger *zap.Logger,
@@ -126,7 +124,6 @@ type CreateUserRequest struct {
 
 // CreateUserResponse collects the response values for the CreateUser method.
 type CreateUserResponse struct {
-	Id   string   `json:"id"`
 	Err error `json:"err"` // should be intercepted by Failed/errorEncoder
 }
 

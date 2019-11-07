@@ -30,7 +30,7 @@ func InstrumentingMiddleware(duration metrics.Histogram) endpoint.Middleware {
 // duration of each invocation, and the resulting error, if any.
 func LoggingMiddleware(logger *zap.Logger) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+			return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 
 			defer func(begin time.Time) {
 				logger.Info("Transport Log",
