@@ -1,4 +1,4 @@
-package transport
+package service
 
 import (
 	"github.com/streadway/amqp"
@@ -7,31 +7,45 @@ import (
 type Queue struct{
 	AmqpConnection *amqp.Connection
 	Channel *amqp.Channel
-	Entities map[string]*amqp.Queue
+	Entities map[string]amqp.Queue
 }
 
-func NewAmqpConnection(connstring string, queueNames []string)*Queue{
-	conn, _ := amqp.Dial(connstring)
-	ch, _ := conn.Channel()
+func NewAmqpConnection(connstring string, queueNames []string)(Queue, error){
+	conn, err := amqp.Dial(connstring)
+
+	if err != nil {
+		return Queue{}, err
+	}
+
+	ch, err := conn.Channel()
+
+	if err != nil {
+		return Queue{}, err
+	}
+
 	var (
 		queue amqp.Queue
-		queues = make(map[string]*amqp.Queue)
+		queues = make(map[string]amqp.Queue)
 		)
 	for _, channelName := range queueNames {
-		queue , _ = ch.QueueDeclare(
+		queue , err  = ch.QueueDeclare(
 			channelName,
 			true,  /*durable connection*/
 			false, /*auto delete*/
 			false, /*exclusive*/
 			false, /*nowai*t*/
 			nil    /*arg amqp.table*/)
-		queues[channelName] = &queue
+
+		if err != nil {
+			return Queue{}, err
+		}
+		queues[channelName] = queue
 	}
 
-	return &Queue{AmqpConnection:conn, Channel:ch, Entities: queues}
+	return Queue{AmqpConnection:conn, Channel:ch, Entities: queues}, nil
 }
 
-func (q *Queue) SendMessageToQueue(message string, channelName string) error{
+func (q Queue) SendMessageToQueue(message string, queueName string) error{
 	publishedMsg := amqp.Publishing{
 		DeliveryMode:2, // persistent msg delivery
 		Body: []byte(message),
@@ -41,7 +55,7 @@ func (q *Queue) SendMessageToQueue(message string, channelName string) error{
 
 	err := q.Channel.Publish(
 		"",            // exchange string
-		q.Entities[channelName].Name, // key string
+		q.Entities[queueName].Name, // key string
 		false,         // mandatory
 		false,         // immediate
 		publishedMsg)
@@ -53,7 +67,7 @@ func (q *Queue) SendMessageToQueue(message string, channelName string) error{
 	return nil
 }
 
-func (q *Queue) ConsumerMessageFromQueue(message string, queueName string) ([]interface{}, error){
+func (q Queue) ConsumerMessageFromQueue(message string, queueName string) ([]interface{}, error){
 	var response []interface{}
 
 	msgs, err := q.Channel.Consume(

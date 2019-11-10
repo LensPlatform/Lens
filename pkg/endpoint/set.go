@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
+	"github.com/LensPlatform/Lens/pkg/database"
 	"github.com/LensPlatform/Lens/pkg/service"
-	model "github.com/LensPlatform/Lens/pkg/database"
 
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
@@ -158,7 +158,7 @@ func MakeLoginEndpoint(s service.Service, logger *zap.Logger,
 
 // ============================== Endpoint Service Interface Impl  ======================
 // CreateUser implements the service interface so that set may be used as a service.
-func (s Set) CreateUser(ctx context.Context, user model.User)(err error){
+func (s Set) CreateUser(ctx context.Context, user database.User)(err error){
 	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{User:user})
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func (s Set) CreateUser(ctx context.Context, user model.User)(err error){
 	return response.Err
 }
 
-func (s Set) GetUserById(ctx context.Context, id string)(user model.User, err error){
+func (s Set) GetUserById(ctx context.Context, id string)(user database.User, err error){
 	resp, err := s.GetUserByIdEndpoint(ctx, GetUserRequest{Param:id})
 	response := resp.(GetUserResponse)
 	if err != nil {
@@ -176,7 +176,7 @@ func (s Set) GetUserById(ctx context.Context, id string)(user model.User, err er
 	return response.User, nil
 }
 
-func (s Set) GetUserByEmail(ctx context.Context, email string)(user model.User, err error){
+func (s Set) GetUserByEmail(ctx context.Context, email string)(user database.User, err error){
 	resp, err := s.GetUserByEmailEndpoint(ctx, GetUserRequest{Param:email})
 	response := resp.(GetUserResponse)
 	if err != nil {
@@ -185,7 +185,7 @@ func (s Set) GetUserByEmail(ctx context.Context, email string)(user model.User, 
 	return response.User, nil
 }
 
-func (s Set) GetUserByUsername(ctx context.Context, username string)(user model.User, err error){
+func (s Set) GetUserByUsername(ctx context.Context, username string)(user database.User, err error){
 	resp, err := s.GetUserByUsernameEndpoint(ctx, GetUserRequest{Param:username})
 	response := resp.(GetUserResponse)
 	if err != nil {
@@ -194,7 +194,7 @@ func (s Set) GetUserByUsername(ctx context.Context, username string)(user model.
 	return response.User, nil
 }
 
-func (s Set) logIn(ctx context.Context, username, password string)(user model.User, err error){
+func (s Set) logIn(ctx context.Context, username, password string)(user database.User, err error){
 	resp, err := s.LoginEndpoint(ctx, LoginRequest{Username:username, Password:password})
 	response := resp.(GetUserResponse)
 	if err != nil {
@@ -230,7 +230,7 @@ var (
 
 // CreateUserRequest collects the request parameters for the CreateUser method.
 type CreateUserRequest struct {
-	User model.User
+	User database.User
 }
 
 type GetUserRequest struct {
@@ -251,7 +251,7 @@ type CreateUserResponse struct {
 
 type GetUserResponse struct {
 	Err error `json:"err"`
-	User model.User `json:"user"`
+	User database.User `json:"user"`
 }
 
 // ============================== Endpoint Response Failed Definitions ======================

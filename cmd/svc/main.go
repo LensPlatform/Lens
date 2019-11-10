@@ -29,9 +29,10 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
 
+	"github.com/LensPlatform/Lens/pkg/transport"
+
 	"github.com/LensPlatform/Lens/pkg/endpoint"
 	"github.com/LensPlatform/Lens/pkg/service"
-	"github.com/LensPlatform/Lens/pkg/transport"
 )
 
 
@@ -189,12 +190,19 @@ func main() {
 	zapLogger.Info("successfully connected to database",)
 
 	// connect to rabbitmq
-	amqpConnString := "amqp://user:bitnami@localhost:15672"
+	amqpConnString := "amqp://user:bitnami@stats/"
 	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
 	consumerQueueNames := []string{"user_inactive"}
-	amqpproducerconn := transport.NewAmqpConnection(amqpConnString, producerQueueNames)
-	amqpconsumerconn := transport.NewAmqpConnection(amqpConnString, consumerQueueNames)
+	amqpproducerconn, err:= service.NewAmqpConnection(amqpConnString, producerQueueNames)
 
+	if err != nil {
+		zapLogger.Error(err.Error())
+	}
+	amqpconsumerconn ,err:= service.NewAmqpConnection(amqpConnString, consumerQueueNames)
+
+	if err != nil {
+		zapLogger.Error(err.Error())
+	}
 	// Build the layers of the service "onion" from the inside out. First, the
 	// business logic service; then, the set of endpoints that wrap the service;
 	// and finally, a series of concrete transport adapters. The adapters, like

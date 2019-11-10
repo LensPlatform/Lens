@@ -20,12 +20,13 @@ services:
       - RABBITMQ_NODE_TYPE=stats
       - RABBITMQ_NODE_NAME=rabbit@stats
       - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
-      - RABBITMQ_USERNAME=user
-      - RABBITMQ_PASSWORD=bitnami
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=bitnami
     networks:
       - app-tier
     ports:
-      - '15672:15672'
+      - 15672:15672
+      - 5672:5672
     volumes:
       - 'rabbitmqstats_data:/bitnami'
   queue-disc1:
@@ -35,8 +36,8 @@ services:
         - RABBITMQ_NODE_NAME=rabbit@queue-disc1
         - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
         - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
-        - RABBITMQ_USERNAME=user
-        - RABBITMQ_PASSWORD=bitnami
+        - RABBITMQ_DEFAULT_USER=user
+        - RABBITMQ_DEFAULT_PASS=bitnami
       networks:
         - app-tier
       volumes:
@@ -48,8 +49,8 @@ services:
         - RABBITMQ_NODE_NAME=rabbit@queue-ram1
         - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
         - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
-        - RABBITMQ_USERNAME=user
-        - RABBITMQ_PASSWORD=bitnami
+        - RABBITMQ_DEFAULT_USER=user
+        - RABBITMQ_DEFAULT_PASS=bitnami
       networks:
         - app-tier
       volumes:
