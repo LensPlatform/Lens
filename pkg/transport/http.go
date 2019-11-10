@@ -20,6 +20,8 @@ import (
 
 	serviceendpoint "github.com/LensPlatform/Lens/pkg/endpoint"
 	service "github.com/LensPlatform/Lens/pkg/service"
+	utils "github.com/LensPlatform/Lens/pkg/helper"
+
 )
 
 // NewHTTPHandler returns an HTTP handler that makes a set of endpoints
@@ -30,7 +32,7 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 	r := mux.NewRouter()
 	e := serviceendpoint.MakeServerEndpoints(s,logger, duration, otTracer, zipkinTracer)
 	var options = []httptransport.ServerOption{
-		httptransport.ServerErrorHandler(NewTransportHandler(logger)),
+		httptransport.ServerErrorHandler(utils.NewTransportHandler(logger)),
 		httptransport.ServerErrorEncoder(encodeError),
 	}
 	if zipkinTracer != nil {
@@ -120,9 +122,9 @@ func encodeError(_ context.Context, err error, w http.ResponseWriter) {
 
 func codeFrom(err error) int {
 	switch err {
-	case ErrNotFound:
+	case utils.ErrNotFound:
 		return http.StatusNotFound
-	case ErrAlreadyExists, ErrInconsistentIDs:
+	case utils.ErrAlreadyExists, utils.ErrInconsistentIDs:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
@@ -178,11 +180,8 @@ func decodeGetUserRequest(r *http.Request, param string) (interface{}, error) {
 
 	value, ok := vars[param]
 	if !ok {
-		return nil, ErrBadRouting
+		return nil, utils.ErrBadRouting
 	}
 	req.Param = value
 	return req, nil
 }
-
-
-
