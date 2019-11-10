@@ -44,6 +44,7 @@ type Set struct {
 	GetUserByIdEndpoint endpoint.Endpoint
 	GetUserByUsernameEndpoint endpoint.Endpoint
 	GetUserByEmailEndpoint endpoint.Endpoint
+	LoginEndpoint endpoint.Endpoint
 }
 
 // New returns a Set that wraps the provided server, and wires in all of the
@@ -63,6 +64,7 @@ func MakeServerEndpoints(s service.Service, logger *zap.Logger,
 		GetUserByIdEndpoint:  MakeGetUserByIdEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserById"),
 		GetUserByUsernameEndpoint: MakeGetUserByUsernameEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByUsername"),
 		GetUserByEmailEndpoint: MakeGetUserByEmailEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByEmail"),
+		LoginEndpoint: MakeLoginEndpoint(s, logger, duration, otTracer, zipkinTracer, "Login"),
 	}
 }
 
@@ -136,6 +138,23 @@ func MakeGetUserByEmailEndpoint(s service.Service, logger *zap.Logger,
 		duration, otTracer, zipkinTracer, operationName)
 }
 
+func MakeLoginEndpoint(s service.Service, logger *zap.Logger,
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
+
+	loginEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(LoginRequest)
+		logger.Info("User", zap.Any("attempting to log in", request))
+		user, err := s.LogIn(ctx, req.Username, req.Password)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		return GetUserResponse{Err: err, User:user}, nil
+	}
+	return WrapMiddlewares(loginEndpoint, logger,
+		duration, otTracer, zipkinTracer, operationName)
+}
+
 // ============================== Endpoint Service Interface Impl  ======================
 // CreateUser implements the service interface so that set may be used as a service.
 func (s Set) CreateUser(ctx context.Context, user service.User)(err error){
@@ -167,6 +186,15 @@ func (s Set) GetUserByEmail(ctx context.Context, email string)(user service.User
 
 func (s Set) GetUserByUsername(ctx context.Context, username string)(user service.User, err error){
 	resp, err := s.GetUserByUsernameEndpoint(ctx, GetUserRequest{Param:username})
+	response := resp.(GetUserResponse)
+	if err != nil {
+		return response.User, err
+	}
+	return response.User, nil
+}
+
+func (s Set) logIn(ctx context.Context, username, password string)(user service.User, err error){
+	resp, err := s.LoginEndpoint(ctx, LoginRequest{Username:username, Password:password})
 	response := resp.(GetUserResponse)
 	if err != nil {
 		return response.User, err
@@ -206,6 +234,11 @@ type CreateUserRequest struct {
 
 type GetUserRequest struct {
 	Param string
+}
+
+type LoginRequest struct {
+	Username string
+	Password string
 }
 
 // ============================== Endpoint Response Definitions ======================

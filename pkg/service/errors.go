@@ -11,4 +11,8 @@ var (
 	ErrDBConnection = errors.New("database connection error")
 	ErrPasswordsNotEqual = errors.New("password not equal to confirmed password")
 	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrNoUsernameProvided = errors.New("no user name provided")
+	ErrNoPasswordProvided = errors.New("no password provided")
+	ErrInvalidUsernameProvided = errors.New("invalid username provided")
+	ErrInvalidPasswordProvided = errors.New("invalid password provided")
 	)

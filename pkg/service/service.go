@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/go-playground/validator.v9"
@@ -25,28 +26,32 @@ type Service interface {
 	GetUserById(ctx context.Context, id string)(user User, err error)
 	GetUserByEmail(ctx context.Context, email string)(user User, err error)
 	GetUserByUsername(ctx context.Context, username string)(user User, err error)
+	LogIn(ctx context.Context, username, password string)(user User, err error)
 }
 
 // User represents a single user profile
 // ID should always be globally unique
 type User struct {
-	ID string `json:"id" validate:"-"`
-	FirstName string `json:"first_name" validate:"required"`
-	LastName string `json:"last_name" validate:"required"`
-	UserName string `json:"user_name" validate:"required"`
-	Email string `json:"email" validate:"required,email"`
-	PassWord string `json:"password" validate:"required,gte=8,lte=20"`
-	PassWordConfirmed string `json:"password_confirmed" validate:"required,gte=8,lte=20"`
-	Age int `json:"age" validate:"gte=0,lte=120"`
-	BirthDate string `json:"birth_date" validate:"required"`
-	PhoneNumber string `json:"phone_number" validate:"required"`
-	Addresses Address `json:"location" validate:"-"`
-	Bio string `json:"bio" validate:"required"`
-	EducationalExperience Education `json:"education" validate:"-"`
-	UserInterests Interests `json:"interests" validate:"-"`
-	Headline string `json:"headline" validate:"max=30"`
-	UserSubscriptions Subscriptions `json:"subscriptions" validate:"-"`
-	Intent string `json:"intent" validate:"required"`
+	ID string `json:"id" validate:"-" db:"id"`
+	FirstName string `json:"first_name" validate:"required" db:"firstname"`
+	LastName string `json:"last_name" validate:"required" db:"lastname"`
+	UserName string `json:"user_name" validate:"required" db:"username"`
+	Gender string `json:"gender" validate:"-" db:"gender"`
+	Languages string `json:"Languages" validate:"-" db:"languages"`
+	Email string `json:"email" validate:"required,email" db:"email"`
+	PassWord string `json:"password" validate:"required,gte=8,lte=20" db:"password"`
+	PassWordConfirmed string `json:"password_confirmed" validate:"required,gte=8,lte=20" db:"passwordconf"`
+	Age int `json:"age" validate:"gte=0,lte=120" db:"age"`
+	BirthDate string `json:"birth_date" validate:"required" db:"birthdate"`
+	PhoneNumber string `json:"phone_number" validate:"required" db:"phonenumber"`
+	Addresses Address `json:"location" validate:"-" db:"address"`
+	Bio string `json:"bio" validate:"required" db:"bio"`
+	EducationalExperience Education `json:"education" validate:"-" db:"education"`
+	UserInterests Interests `json:"interests" validate:"-" db:"interests"`
+	Headline string `json:"headline" validate:"max=30" db:"headline"`
+	UserSubscriptions Subscriptions `json:"subscriptions" validate:"-" db:"subscriptions"`
+	Intent string `json:"intent" validate:"required" db:"intent"`
+	Skills Skillset `json:"skillset" validate:"-" db:"skills"`
 }
 
 type JsonEmbeddable struct {}
@@ -91,29 +96,81 @@ type Subscriptions struct {
 	Subscribe bool `json:"subscribe" validate:"required"`
 }
 
+type Skillset struct {
+	JsonEmbeddable
+	Skills []Skill `json:"skills" validate:"required"`
+}
+
+type Skill struct {
+	JsonEmbeddable
+	Type string `json:"skill_type" validate:"required"`
+	Name string `json:"skill_name" validate:"required"`
+}
+
 var validate = validator.New()
 
 // New returns a basic Service with all of the expected middlewares wired in.
-func New(logger *zap.Logger, db *sql.DB, CreateUserRequest, successfulCreateUserReq,
-	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq metrics.Counter) Service {
+func New(logger *zap.Logger, db *sqlx.DB, CreateUserRequest, successfulCreateUserReq,
+	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq, successfulLogInReq, failedLogInReq metrics.Counter) Service {
 	var svc Service
 	{
 		svc = NewBasicService(db, logger)
 		svc = LoggingMiddleware(logger)(svc)
 		svc = InstrumentingMiddleware(CreateUserRequest, successfulCreateUserReq,
-			failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq)(svc)
+			failedCreateUserReq, getUserRequests, successfulGetUserReq,
+			failedGetUserReq,successfulLogInReq, failedLogInReq )(svc)
 	}
 	return svc
 }
 
 // NewBasicService returns a naïve, stateless implementation of Service.
-func NewBasicService(db *sql.DB, logger *zap.Logger) Service {
+func NewBasicService(db *sqlx.DB, logger *zap.Logger) Service {
 	return basicService{logger:logger, dbConn: db}
 }
 
 type basicService struct{
 	logger *zap.Logger
-	dbConn *sql.DB
+	dbConn *sqlx.DB
+}
+
+func (s basicService) LogIn(ctx context.Context, username, password string) (user User, err error) {
+	var userObj User
+	if username == ""{
+		s.logger.Error(ErrNoUsernameProvided.Error())
+		return userObj, ErrNoUsernameProvided
+	}
+
+	if password == ""{
+		s.logger.Error(ErrNoPasswordProvided.Error())
+		return userObj, ErrNoPasswordProvided
+	}
+
+	// check if user exists in the database
+	err = s.dbConn.QueryRowContext(ctx, GetUserByUsernameQuery, username).Scan(&userObj.ID, &userObj.FirstName, &userObj.LastName,
+		&userObj.UserName, &userObj.Email, &userObj.PassWord, &userObj.PassWordConfirmed, &userObj.Age, &userObj.BirthDate, &user.PhoneNumber,
+		&userObj.Addresses, &userObj.Bio, &userObj.EducationalExperience, &userObj.UserInterests, &user.Headline, &user.Intent, &user.UserSubscriptions,
+		&user.Gender, &user.Languages, &user.Skills)
+
+	if err != nil{
+		if err == sql.ErrNoRows{
+			s.logger.Error(ErrInvalidUsernameProvided.Error())
+			return userObj, ErrInvalidUsernameProvided
+		}
+
+		return userObj, err
+	}
+
+	s.logger.Info("Password", zap.String("password", userObj.PassWord))
+
+	// check if passwords match
+	isEqual := s.comparePasswords(userObj.PassWord, []byte(password))
+
+	if !isEqual{
+		s.logger.Error(ErrInvalidPasswordProvided.Error())
+		return User{}, ErrInvalidPasswordProvided
+	}
+
+	return userObj, nil
 }
 
 func (s basicService) GetUserById(ctx context.Context, id string) (user User, err error) {
@@ -171,7 +228,8 @@ func (s basicService) CreateUser(ctx context.Context, currentuser User) (err err
 						currentuser.PassWordConfirmed,currentuser.Age, currentuser.BirthDate,
 						currentuser.PhoneNumber, currentuser.Addresses, currentuser.EducationalExperience,
 						currentuser.UserInterests,currentuser.Headline,currentuser.Intent,
-						currentuser.UserSubscriptions, currentuser.Bio)
+						currentuser.UserSubscriptions, currentuser.Bio, currentuser.Gender,
+						currentuser.Skills, currentuser.Languages)
 
 	if err != nil {
 		s.logger.Error(err.Error())
@@ -273,7 +331,8 @@ func (s basicService) getUserFromQueryParam(ctx context.Context, query string, p
 															&user.PassWord, &user.PassWordConfirmed,
 															&user.Age, &user.BirthDate, &user.PhoneNumber,&user.Addresses,
 															&user.Bio, &user.EducationalExperience,
-															&user.UserInterests, &user.Headline, &user.Intent, &user.UserSubscriptions)
+															&user.UserInterests, &user.Headline, &user.Intent, &user.UserSubscriptions,
+															&user.Gender, &user.Languages,&user.Skills)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return User{}, err

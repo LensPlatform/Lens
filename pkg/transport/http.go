@@ -46,27 +46,33 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 	// GET    /user/username/:username                         Gets a user profile by username
 	// GET    /user/:id                         Gets a user profile by id
 	// GET    /user/email/:email                         Gets a user profile by email
-	r.Methods("POST").Path("/user/create-user").Handler(httptransport.NewServer(
+	r.Methods("POST").Path("/v1/user/create-user").Handler(httptransport.NewServer(
 		e.CreateUserEndpoint,
 		decodeCreateUserRequest,
 		encodeResponse,
 		options...,
 		))
-	r.Methods("GET").Path("/user/username/{username}").Handler(httptransport.NewServer(
+	r.Methods("GET").Path("/v1/user/username/{username}").Handler(httptransport.NewServer(
 		e.GetUserByUsernameEndpoint,
 		decodeGetUserRequestByUsername,
 		encodeResponse,
 		options...,
 	))
-	r.Methods("GET").Path("/user/{id}").Handler(httptransport.NewServer(
+	r.Methods("GET").Path("/v1/user/id/{id}").Handler(httptransport.NewServer(
 		e.GetUserByIdEndpoint,
 		decodeGetUserRequestById,
 		encodeResponse,
 		options...,
 	))
-	r.Methods("GET").Path("/user/email/{email}").Handler(httptransport.NewServer(
+	r.Methods("GET").Path("/v1/user/email/{email}").Handler(httptransport.NewServer(
 		e.GetUserByEmailEndpoint,
 		decodeGetUserRequestByEmail,
+		encodeResponse,
+		options...,
+	))
+	r.Methods("GET").Path("/v1/user/login").Handler(httptransport.NewServer(
+		e.LoginEndpoint,
+		decodeLogin,
 		encodeResponse,
 		options...,
 	))
@@ -107,7 +113,7 @@ func encodeError(_ context.Context, err error, w http.ResponseWriter) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(codeFrom(err))
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"error": err.Error(),
 	})
 }
@@ -155,6 +161,14 @@ func decodeGetUserRequestByUsername(_ context.Context, r *http.Request) (interfa
 	if err != nil {
 		return nil, err
 	}
+	return req, nil
+}
+
+func decodeLogin(_ context.Context, r *http.Request) (interface{}, error) {
+	var req serviceendpoint.LoginRequest
+	params := r.URL.Query()
+	req.Username = params.Get("username")
+	req.Password = params.Get("password")
 	return req, nil
 }
 

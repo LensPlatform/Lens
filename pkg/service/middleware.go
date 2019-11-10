@@ -24,6 +24,23 @@ type loggingMiddleware struct {
 	next Service
 }
 
+func (mw loggingMiddleware) LogIn(ctx context.Context, username, password string) (user User, err error) {
+	defer func(){
+		if err != nil {
+			mw.logger.Info("Request Completed",
+				zap.String("method", "LogIn"),
+				zap.Any("user", user), zap.Any("error", err))
+		}
+	}()
+
+	user, err = mw.next.LogIn(ctx, username, password)
+
+	if err != nil {
+		return User{},err
+	}
+	return user,nil
+}
+
 func (mw loggingMiddleware) GetUserById(ctx context.Context, id string) (user User, err error) {
 	defer func(){
 		if err != nil {
@@ -98,7 +115,7 @@ func (mw loggingMiddleware) CreateUser(ctx context.Context, user User) (err erro
 // the number of users created over the lifetime of
 // the service.
 func InstrumentingMiddleware(CreateUserRequest, successfulCreateUserReq,
-	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq  metrics.Counter) Middleware {
+	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq, successfulLogInRequests, failedLoginRequests  metrics.Counter) Middleware {
 	return func(next Service) Service {
 		return instrumentingMiddleware{
 			UsersCreateRequests:  CreateUserRequest,
@@ -107,6 +124,8 @@ func InstrumentingMiddleware(CreateUserRequest, successfulCreateUserReq,
 			SuccessfulGetUserRequests:successfulGetUserReq,
 			FailedGetUserRequests:failedGetUserReq,
 			GetUserRequests: getUserRequests,
+			SuccessfulLoginRequests: successfulLogInRequests,
+			FailedLoginRequests: failedLoginRequests,
 			next:  next,
 		}
 	}
@@ -120,8 +139,21 @@ type instrumentingMiddleware struct {
 	SuccessfulGetUserRequests metrics.Counter
 	FailedGetUserRequests metrics.Counter
 	GetUserRequests metrics.Counter
+	FailedLoginRequests metrics.Counter
+	SuccessfulLoginRequests metrics.Counter
 	next  Service
 }
+
+func (mw instrumentingMiddleware) LogIn(ctx context.Context, username, password string) (user User, err error) {
+	user, err = mw.next.LogIn(ctx, username, password)
+
+	if err != nil {
+		mw.FailedLoginRequests.Add(1)
+		return User{},err
+	}
+
+	mw.SuccessfulLoginRequests.Add(1)
+	return user,nil}
 
 func (mw instrumentingMiddleware) GetUserById(ctx context.Context, id string) (user User, err error) {
 	mw.GetUserRequests.Add(1)

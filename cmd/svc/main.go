@@ -10,8 +10,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"database/sql"
-
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/lightstep/lightstep-tracer-go"
 	"github.com/oklog/oklog/pkg/group"
@@ -107,7 +106,8 @@ func main() {
 
 	// Create the (sparse) metrics we'll use in the service. They, too, are
 	// dependencies that we pass to components that use them.
-	var  CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq metrics.Counter
+	var  CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq,
+	failedGetUserReq, successfulLogInReq,failedLogInReq metrics.Counter
 	{
 		// Business-level metrics.
 		CreateUserRequest = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -135,16 +135,28 @@ func main() {
 			Help:      "Total count of get user requests.",
 		}, []string{})
 		successfulGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "get_user_requests_success_ops",
-			Help:      "Total count of successful get user requests.",
-		}, []string{})
+		Namespace: "users",
+		Subsystem: "users",
+		Name:      "get_user_requests_success_ops",
+		Help:      "Total count of successful get user requests.",
+	}, []string{})
 		failedGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "users",
 			Subsystem: "users",
 			Name:      "get_user_requests_failed_ops",
 			Help:      "Total count of failed get user requests.",
+		}, []string{})
+		successfulLogInReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "login_requests_sucess_ops",
+			Help:      "Total count of successful logIn requests.",
+		}, []string{})
+		failedLogInReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "login_requests_failed_ops",
+			Help:      "Total count of failed login requests.",
 		}, []string{})
 	}
 	var duration metrics.Histogram
@@ -161,7 +173,7 @@ func main() {
 
 	// configure sql db connection
 	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
-	db, err := sql.Open("postgres", connString)
+	db, err := sqlx.Open("postgres", connString)
 	if err != nil {
 		zapLogger.Error(err.Error())
 		os.Exit(1)
@@ -184,7 +196,8 @@ func main() {
 	// them to ports or anything yet; we'll do that next.
 	var (
 		userservice        = service.New(zapLogger, db, CreateUserRequest, successfulCreateUserReq,
-			failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq)
+										 failedCreateUserReq, getUserRequests, successfulGetUserReq,
+										 failedGetUserReq, successfulLogInReq,failedLogInReq)
 		endpoints      = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)
 		httpHandler    = transport.NewHTTPHandler(userservice,endpoints,duration, tracer, zipkinTracer, zapLogger)
 	)
