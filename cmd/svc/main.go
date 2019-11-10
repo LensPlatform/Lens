@@ -188,6 +188,13 @@ func main() {
 
 	zapLogger.Info("successfully connected to database",)
 
+	// connect to rabbitmq
+	amqpConnString := "amqp://user:bitnami@localhost:15672"
+	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
+	consumerQueueNames := []string{"user_inactive"}
+	amqpproducerconn := transport.NewAmqpConnection(amqpConnString, producerQueueNames)
+	amqpconsumerconn := transport.NewAmqpConnection(amqpConnString, consumerQueueNames)
+
 	// Build the layers of the service "onion" from the inside out. First, the
 	// business logic service; then, the set of endpoints that wrap the service;
 	// and finally, a series of concrete transport adapters. The adapters, like
@@ -195,7 +202,7 @@ func main() {
 	// the interfaces that the transports expect. Note that we're not binding
 	// them to ports or anything yet; we'll do that next.
 	var (
-		userservice        = service.New(zapLogger, db, CreateUserRequest, successfulCreateUserReq,
+		userservice        = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, CreateUserRequest, successfulCreateUserReq,
 										 failedCreateUserReq, getUserRequests, successfulGetUserReq,
 										 failedGetUserReq, successfulLogInReq,failedLogInReq)
 		endpoints      = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)

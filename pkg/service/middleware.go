@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/metrics"
+
 	model "github.com/LensPlatform/Lens/pkg/database"
 
 	"go.uber.org/zap"

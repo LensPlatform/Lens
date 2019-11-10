@@ -13,8 +13,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/go-playground/validator.v9"
 
-	utils "github.com/LensPlatform/Lens/pkg/helper"
 	model "github.com/LensPlatform/Lens/pkg/database"
+	utils "github.com/LensPlatform/Lens/pkg/helper"
+	 "github.com/LensPlatform/Lens/pkg/transport"
 )
 
 // Service is a CRUD interface definition for the user microservice
@@ -33,11 +34,13 @@ type Service interface {
 var validate = validator.New()
 
 // New returns a basic Service with all of the expected middlewares wired in.
-func New(logger *zap.Logger, db *sqlx.DB, CreateUserRequest, successfulCreateUserReq,
-	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq, successfulLogInReq, failedLogInReq metrics.Counter) Service {
+func New(logger *zap.Logger, db *sqlx.DB, amqpProducer *transport.Queue,
+	amqpConsumer *transport.Queue, CreateUserRequest, successfulCreateUserReq,
+	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq,
+	successfulLogInReq, failedLogInReq metrics.Counter) Service {
 	var svc Service
 	{
-		svc = NewBasicService(db, logger)
+		svc = NewBasicService(db, logger, amqpProducer, amqpConsumer)
 		svc = LoggingMiddleware(logger)(svc)
 		svc = InstrumentingMiddleware(CreateUserRequest, successfulCreateUserReq,
 			failedCreateUserReq, getUserRequests, successfulGetUserReq,
@@ -47,13 +50,16 @@ func New(logger *zap.Logger, db *sqlx.DB, CreateUserRequest, successfulCreateUse
 }
 
 // NewBasicService returns a naïve, stateless implementation of Service.
-func NewBasicService(db *sqlx.DB, logger *zap.Logger) Service {
-	return basicService{logger:logger, database: model.NewDatabase(db)}
+func NewBasicService(db *sqlx.DB, logger *zap.Logger, amqpProducer *transport.Queue, amqpConsumer *transport.Queue) Service {
+	return basicService{logger:logger, database: model.NewDatabase(db),
+		ConsumerQueues: amqpConsumer, ProducerQueues: amqpProducer}
 }
 
 type basicService struct{
 	logger *zap.Logger
 	database *model.Database
+	ConsumerQueues *transport.Queue
+	ProducerQueues *transport.Queue
 }
 
 func (s basicService) LogIn(ctx context.Context, username, password string) (user model.User, err error) {
