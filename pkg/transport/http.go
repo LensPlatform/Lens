@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	_ "github.com/go-kit/kit/log"
@@ -79,6 +80,7 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 		options...,
 	))
 
+	r.Methods("GET").Path("/v1/metrics").Handler(promhttp.Handler())
 	return r
 }
 

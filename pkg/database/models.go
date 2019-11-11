@@ -4,7 +4,11 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+
+	"google.golang.org/genproto/googleapis/type/date"
 )
+
+type JsonEmbeddable struct {}
 
 // User represents a single user profile
 // ID should always be globally unique
@@ -29,9 +33,78 @@ type User struct {
 	UserSubscriptions Subscriptions `json:"subscriptions" validate:"-" db:"subscriptions"`
 	Intent string `json:"intent" validate:"required" db:"intent"`
 	Skills Skillset `json:"skillset" validate:"-" db:"skills"`
+	AssociatedTeams []string `json:"associated_teams" validate:"-" db:"associated_teams"`
 }
 
-type JsonEmbeddable struct {}
+type Team struct{
+	Name string `json:"name" validate:"required"` // team name
+	Type string `json:"type" validate:"required"` // investor or startup team
+	Overview string `json:"overview" validate:"required"` // about the team
+	IndustryOfInterest string `json:"industry" validate:"required"` // industry of interest
+	FoundedDate date.Date `json:"founded_date" validate:"required"`
+	Founders []TeamMember `json:"founder" validate:"required"`
+	NumberOfEmployees int `json:"number_of_employees" validate:"required"` // size of team
+	Headquarters string `json:"headquarters" validate:"-"`
+	Interests string `json:"interests" validate:"-"`
+	TeamMembers []TeamMember `json:"team_members" validate:"-"`
+	Advisors []TeamMember `json:"advisors" validate:"-"`
+	SocialMedia SocialMedia `json:"social_media" validate:"-"`
+	Contact Contact `json:"contact" validate:"-"`
+}
+
+type Startup struct {
+	Team
+	Funds Funding `json:"funding" validate:"-"`
+	CompanyDetails Details `json:"company_details" validate:"-"`
+}
+
+type Investor struct{
+	Team
+	InvestorType string `json:"investor_type" validate:"-"`
+	InvestmentStage string `json:"investment_stage" validate:"-"`
+	NumberOfExits int `json:"number_of_exits" validate:"-"`
+	NumberOfinvestments int `json:"number_of_investments" validate:"-"`
+	NumberOfFunds int `json:"number_of_funds" validate:"-"`
+	TotalFundsRaised int `json:"total_funds_raised" validate:"-"`
+}
+
+type Funding struct {
+	JsonEmbeddable
+	TotalFunding int `json:"total_funding" validate:"required"`
+	LatestRound string `json:"latest_round" validate:"required"`
+	LatestRoundDate string `json:"latest_round_date" validate:"required"`
+	LatestRoundFunding int `json:"latest_round_funding" validate:"required"`
+	Investors []string `json:"investors" validate:"-"`
+	InvestorType string `json:"investor_type" validate:"-"` //Accelerator
+	InvestmentStage string `json:"investment_stage" validate:"-"` // Debt, Early Stage Venture, Seed
+}
+
+type Details struct {
+	JsonEmbeddable
+	IPOStatus string `json:"ipo_status" validate:"-"`
+	CompanyType string `json:"company_type" validate:"-"` // for-profit
+}
+
+type TeamMember struct {
+	JsonEmbeddable
+	ID string `json:"ID" validate:"required"`
+	Name string `json:"name" validate:"required"`
+	Status string `json:"status" validate:"required"` // co-founder
+}
+
+type Contact struct {
+	JsonEmbeddable
+	Email string `json:"email" validate:"required"`
+	PhoneNumber string `json:"phonenumber" validated:"required"`
+}
+
+type SocialMedia struct{
+	JsonEmbeddable
+	Website string `json:"website" validate:"-"`
+	Facebook string `json:"facebook" validate:"-"`
+	Twitter string `json:"twitter" validate:"-"`
+	LinkedIn string `json:"linkedIn" validate:""`
+}
 
 type Address struct {
 	JsonEmbeddable
