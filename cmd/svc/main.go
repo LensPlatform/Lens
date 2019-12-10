@@ -173,7 +173,7 @@ func main() {
 	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
 
 	// configure sql db connection
-	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
+	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/users-microservice-db?sslmode=require"
 	db, err := sqlx.Open("postgres", connString)
 	if err != nil {
 		zapLogger.Error(err.Error())

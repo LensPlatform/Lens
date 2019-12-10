@@ -14,6 +14,7 @@ import (
 	"gopkg.in/go-playground/validator.v9"
 
 	"github.com/LensPlatform/Lens/pkg/database"
+	model "github.com/LensPlatform/Lens/pkg/models"
 	"github.com/LensPlatform/Lens/pkg/helper"
 )
 
@@ -23,11 +24,11 @@ import (
 // it takes as input an type interface and returns the object id of the created
 // user and any error encountered that may have occurred during this transaction
 type Service interface {
-	CreateUser(ctx context.Context, user database.User)(err error)
-	GetUserById(ctx context.Context, id string)(user database.User, err error)
-	GetUserByEmail(ctx context.Context, email string)(user database.User, err error)
-	GetUserByUsername(ctx context.Context, username string)(user database.User, err error)
-	LogIn(ctx context.Context, username, password string)(user database.User, err error)
+	CreateUser(ctx context.Context, user model.User)(err error)
+	GetUserById(ctx context.Context, id string)(user model.User, err error)
+	GetUserByEmail(ctx context.Context, email string)(user model.User, err error)
+	GetUserByUsername(ctx context.Context, username string)(user model.User, err error)
+	LogIn(ctx context.Context, username, password string)(user model.User, err error)
 }
 
 var validate = validator.New()
@@ -61,7 +62,7 @@ type basicService struct{
 	ProducerQueues Queue
 }
 
-func (s basicService) LogIn(ctx context.Context, username, password string) (user database.User, err error) {
+func (s basicService) LogIn(ctx context.Context, username, password string) (user model.User, err error) {
 	if username == ""{
 		s.logger.Error(helper.ErrNoUsernameProvided.Error())
 		return user, helper.ErrNoUsernameProvided
@@ -91,28 +92,28 @@ func (s basicService) LogIn(ctx context.Context, username, password string) (use
 
 	if !isEqual{
 		s.logger.Error(helper.ErrInvalidPasswordProvided.Error())
-		return database.User{}, helper.ErrInvalidPasswordProvided
+		return model.User{}, helper.ErrInvalidPasswordProvided
 	}
 
 	return user, nil
 }
 
-func (s basicService) GetUserById(ctx context.Context, id string) (user database.User, err error) {
+func (s basicService) GetUserById(ctx context.Context, id string) (user model.User, err error) {
 	return s.getUserFromQueryParam(ctx,database.GetUserByIdQuery,id)
 }
 
-func (s basicService) GetUserByEmail(ctx context.Context, email string) (user database.User, err error) {
+func (s basicService) GetUserByEmail(ctx context.Context, email string) (user model.User, err error) {
 	return s.getUserFromQueryParam(ctx,database.GetUserByEmailQuery,email)
 }
 
-func (s basicService) GetUserByUsername(ctx context.Context, username string) (user database.User, err error) {
+func (s basicService) GetUserByUsername(ctx context.Context, username string) (user model.User, err error) {
 	return s.getUserFromQueryParam(ctx,database.GetUserByUsernameQuery,username)
 }
 
 // CreateUser implements service.
 //
 // Creates a user in the backend store given some user object of interface type
-func (s basicService) CreateUser(ctx context.Context, currentuser database.User) (err error) {
+func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (err error) {
 	// check for proper input argument
 	if unsafe.Sizeof(currentuser) == 0 {
 		return helper.ErrNoUserProvided
@@ -159,7 +160,7 @@ func (s basicService) CreateUser(ctx context.Context, currentuser database.User)
 	return nil
 }
 
-func (s basicService) validateAndHashPassword(currentuser database.User) (user database.User, err error){
+func (s basicService) validateAndHashPassword(currentuser model.User) (user model.User, err error){
 	// check if confirmed password and actual password match
 	if currentuser.PassWord != currentuser.PassWordConfirmed {
 		s.logger.Error(helper.ErrPasswordsNotEqual.Error())
@@ -178,7 +179,7 @@ func (s basicService) validateAndHashPassword(currentuser database.User) (user d
 	return currentuser, nil
 }
 
-func (s basicService) validateUser(err error, currentuser database.User) error {
+func (s basicService) validateUser(err error, currentuser model.User) error {
 	// validate fields are present
 	err = validate.Struct(currentuser)
 	if err != nil {
@@ -230,11 +231,11 @@ func (s basicService) comparePasswords(hashedPwd string, plainPwd []byte) bool {
 	return true
 }
 
-func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user database.User, err error){
+func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user model.User, err error){
 	user, err = s.database.GetUserBasedOnParam(param,query)
 	if err != nil {
 		s.logger.Error(err.Error())
-		return database.User{}, err
+		return model.User{}, err
 	}
 	return user, nil
 }

@@ -4,13 +4,15 @@ import (
 	"database/sql"
 
 	"github.com/jmoiron/sqlx"
+
+	model "github.com/LensPlatform/Lens/pkg/models"
 )
 
 type DBHandler interface {
-	AddUser(user User) error
-	GetUserById(id string) ( User,  error)
-	GetUserByEmail(email string)( User,  error)
-	GetUserByUsername(username string)( User,  error)
+	AddUser(user model.User) error
+	GetUserById(id string) ( model.User,  error)
+	GetUserByEmail(email string)( model.User,  error)
+	GetUserByUsername(username string)( model.User,  error)
 	GetPassword(id string)( string,  error)
 	DoesUserExist(id string) (bool, error)
 }
@@ -23,14 +25,14 @@ func NewDatabase(db *sqlx.DB) *Database {
 	return &Database{connection:db}
 }
 
-func (db Database) AddUser(user User) error {
+func (db Database) AddUser(user model.User) error {
 	// Create user in database
 	_, err := db.connection.Exec(CreateUserQuery, user.FirstName, user.LastName,
 		user.UserName, user.Email, user.PassWord,
 		user.PassWordConfirmed,user.Age, user.BirthDate,
-		user.PhoneNumber, user.Addresses, user.EducationalExperience,
+		user.PhoneNumber, user.Addresses, user.Education,
 		user.UserInterests,user.Headline,user.Intent,
-		user.UserSubscriptions, user.Bio, user.Gender,
+		user.Subscriptions, user.Bio, user.Gender,
 		user.Skills, user.Languages)
 
 	if err != nil {
@@ -40,63 +42,63 @@ func (db Database) AddUser(user User) error {
 	return nil
 }
 
-func (db Database) GetUserById(id string) (User,error) {
-	var user User
+func (db Database) GetUserById(id string) (model.User,error) {
+	var user model.User
 
 	// Obtain user by id
 	user, err := db.GetUserBasedOnParam(id,GetUserByIdQuery)
 
 	if err != nil {
-		return User{},err
+		return model.User{},err
 	}
 
 	return user, nil
 }
 
-func (db Database) GetUserByUsername(username string) (User,error) {
-	var user User
+func (db Database) GetUserByUsername(username string) (model.User,error) {
+	var user model.User
 
 	// Obtain user by id
 	user, err := db.GetUserBasedOnParam(username,GetUserByUsernameQuery)
 
 	if err != nil {
-		return User{},err
+		return model.User{},err
 	}
 
 	return user, nil
 }
 
-func (db Database) GetUserByEmail(email string) (User,error) {
-	var user User
+func (db Database) GetUserByEmail(email string) (model.User,error) {
+	var user model.User
 
 	// Obtain user by id
 	user, err := db.GetUserBasedOnParam(email,GetUserByEmailQuery)
 
 	if err != nil {
-		return User{},err
+		return model.User{},err
 	}
 
 	return user, nil
 }
 
-func (db Database) GetUserBasedOnParam(param string, query string) (User, error) {
-		var user User
+func (db Database) GetUserBasedOnParam(param string, query string) (model.User, error) {
+		var user model.User
 		rows := db.connection.QueryRow(query, param)
 
 		if rows == nil{
-			return User{}, nil
+			return model.User{}, nil
 		}
 
 		err := rows.Scan(&user.ID,&user.FirstName, &user.LastName, &user.UserName, &user.Email,
 								&user.PassWord, &user.PassWordConfirmed,
 								&user.Age, &user.BirthDate, &user.PhoneNumber,&user.Addresses,
-								&user.Bio, &user.EducationalExperience,
-								&user.UserInterests, &user.Headline, &user.Intent, &user.UserSubscriptions,
+								&user.Bio, &user.Education,
+								&user.UserInterests, &user.Headline, &user.Intent, &user.Subscriptions,
 								&user.Gender, &user.Languages,&user.Skills)
 
 		if err != nil{
 
-			return User{},err
+			return model.User{},err
 		}
 
 		return user, nil
@@ -104,14 +106,14 @@ func (db Database) GetUserBasedOnParam(param string, query string) (User, error)
 
 func (db Database) DoesUserExist(username string) (bool,error) {
 	// check if user exists
-	var user User
+	var user model.User
 	rows := db.connection.QueryRow(GetUserByUsernameQuery, username)
 
 	err := rows.Scan(&user.ID,&user.FirstName, &user.LastName, &user.UserName, &user.Email,
 		&user.PassWord, &user.PassWordConfirmed,
 		&user.Age, &user.BirthDate, &user.PhoneNumber,&user.Addresses,
-		&user.Bio, &user.EducationalExperience,
-		&user.UserInterests, &user.Headline, &user.Intent, &user.UserSubscriptions,
+		&user.Bio, &user.Education,
+		&user.UserInterests, &user.Headline, &user.Intent, &user.Subscriptions,
 		&user.Gender, &user.Languages,&user.Skills)
 
 	if err != nil {

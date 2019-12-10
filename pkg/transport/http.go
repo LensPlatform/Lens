@@ -1,3 +1,8 @@
+/*
+ * @File: transport.http.go
+ * @Description: Defines REST endpoints for the user service
+ * @Author: Yoan Yomba (yoanyomba@lens-platform.net)
+ */
 package transport
 
 import (
@@ -49,7 +54,7 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 	// GET    /user/username/:username                         Gets a user profile by username
 	// GET    /user/:id                         Gets a user profile by id
 	// GET    /user/email/:email                         Gets a user profile by email
-	r.Methods("POST").Path("/v1/user/create-user").Handler(httptransport.NewServer(
+	r.Methods("POST").Path("/v1/user/create").Handler(httptransport.NewServer(
 		e.CreateUserEndpoint,
 		decodeCreateUserRequest,
 		encodeResponse,
