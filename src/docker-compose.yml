@@ -1,0 +1,69 @@
+version: "2"
+services:
+  users-microservice-v1:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: users_microservice
+    ports:
+      - 8801:8085
+      - 8802:8804
+      - 8803:8080
+    restart: always
+    volumes:
+      - '.:/go/src/github.com/LensPlatform/Lens'
+    networks:
+      - app-tier
+  stats:
+    image: bitnami/rabbitmq:3.7
+    environment:
+      - RABBITMQ_NODE_TYPE=stats
+      - RABBITMQ_NODE_NAME=rabbit@stats
+      - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=bitnami
+    networks:
+      - app-tier
+    ports:
+      - 15672:15672
+      - 5672:5672
+    volumes:
+      - 'rabbitmqstats_data:/bitnami'
+  queue-disc1:
+      image: bitnami/rabbitmq:3.7
+      environment:
+        - RABBITMQ_NODE_TYPE=queue-disc
+        - RABBITMQ_NODE_NAME=rabbit@queue-disc1
+        - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+        - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+        - RABBITMQ_DEFAULT_USER=user
+        - RABBITMQ_DEFAULT_PASS=bitnami
+      networks:
+        - app-tier
+      volumes:
+        - 'rabbitmqdisc1_data:/bitnami'
+  queue-ram1:
+      image: bitnami/rabbitmq:3.7
+      environment:
+        - RABBITMQ_NODE_TYPE=queue-ram
+        - RABBITMQ_NODE_NAME=rabbit@queue-ram1
+        - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+        - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+        - RABBITMQ_DEFAULT_USER=user
+        - RABBITMQ_DEFAULT_PASS=bitnami
+      networks:
+        - app-tier
+      volumes:
+        - 'rabbitmqram1_data:/bitnami'
+
+volumes:
+  rabbitmqstats_data:
+    driver: local
+  rabbitmqdisc1_data:
+    driver: local
+  rabbitmqram1_data:
+    driver: local
+
+networks:
+  app-tier:
+    driver: bridge
