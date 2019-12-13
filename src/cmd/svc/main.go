@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
-	"github.com/jmoiron/sqlx"
+	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
 	"github.com/lightstep/lightstep-tracer-go"
 	"github.com/oklog/oklog/pkg/group"
@@ -273,18 +273,20 @@ func InitMetrics() (metrics.Counter, metrics.Counter, metrics.Counter, metrics.C
 	return CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq, successfulLogInReq, failedLogInReq, duration
 }
 
-func initDbConnection(zapLogger *zap.Logger) (*sqlx.DB, error) {
+func initDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/users-microservice-db?sslmode=require"
-	db, err := sqlx.Open("postgres", connString)
+	db, err := gorm.Open("postgres", connString)
 	if err != nil {
 		zapLogger.Error(err.Error())
 		os.Exit(1)
 	}
+	/*
 	// Check if DB connection can be made, only for logging purposes, should not fail/exit
 	err = db.Ping()
 	if err != nil {
 		zapLogger.Error("error", zap.Any("unable to connect to database", err))
 	}
+	**/
 	zapLogger.Info("successfully connected to database", )
 	return db, err
 }

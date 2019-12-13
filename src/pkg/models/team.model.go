@@ -1,13 +1,16 @@
 package models
 
 import (
+	"github.com/jinzhu/gorm"
 	"google.golang.org/genproto/googleapis/type/date"
 )
 
 type Team struct{
 	JsonEmbeddable
+	gorm.Model
 	ID string `json:"id" validate:"-" sql:"id"`
 	Name string `json:"name" validate:"required" sql:"name"` // team name
+	Email string `json:"email" validate:"required"`
 	Type string `json:"type" validate:"required" sql:"type"` // investor or startup team
 	Overview string `json:"overview" validate:"required" sql:"overview"` // about the team
 	IndustryOfInterest string `json:"industry" validate:"required" sql:"industryofinterest"` // industry of interest

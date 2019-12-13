@@ -1,15 +1,24 @@
 package models
 
+import (
+	"time"
+
+	"github.com/jinzhu/gorm"
+)
+
 // User represents a single user profile
 // ID should always be globally unique
 type User struct {
-	ID string `json:"id" validate:"-" sql:"id"`
+	JsonEmbeddable
+	gorm.Model
+	ID string `json:"id" validate:"-" gorm:"primary_key"`
+	Type string `json:"user_type" validate:"required"`
 	FirstName string `json:"first_name" validate:"required" sql:"firstname"`
 	LastName string `json:"last_name" validate:"required" sql:"lastname"`
-	UserName string `json:"user_name" validate:"required" sql:"username"`
+	UserName string `json:"user_name" validate:"required" gorm:"type:varchar(100);unique_index"`
 	Gender string `json:"gender" validate:"-" sql:"gender"`
 	Languages string `json:"Languages" validate:"-" sql:"languages"`
-	Email string `json:"email" validate:"required,email" sql:"email"`
+	Email string `json:"email" validate:"required,email" gorm:"type:varchar(100);unique_index"`
 	PassWord string `json:"password" validate:"required,gte=8,lte=20" sql:"password"`
 	PassWordConfirmed string `json:"password_confirmed" validate:"required,gte=8,lte=20" sql:"passwordconf"`
 	Age int `json:"age" validate:"gte=0,lte=120" sql:"age"`
@@ -27,10 +36,13 @@ type User struct {
 	Groups []string `json: "associated_groups,omitempty" validate:"-" sql: "groups"`
 	SocialMedia SocialMedia `json:"social_media,omitempty" validate:"-" sql:"social_media"`
 	Settings Settings `json:"settings,omitempty" validate:"-" sql:"settings"`
+	CreatedAt time.Time `json:"created_at" validate:"-"`
+	UpdatedAt time.Time `json:"updated_at" validate:"-"`
 }
 
 type Address struct {
 	JsonEmbeddable
+	gorm.Model
 	City string `json:"city" validate:"required" sql:"city"`
 	State string `json:"state" validate:"required" sql:"state"`
 	Country string `json:"country" validate:"required" sql:"country"`
@@ -38,6 +50,7 @@ type Address struct {
 
 type Education struct{
 	JsonEmbeddable
+	gorm.Model
 	MostRecentInstitutionName string `json:"most_recent_institution_name" validate:"required"`
 	HighestDegreeEarned string `json:"highest_degree_earned" validate:"required"`
 	Graduated bool `json:"graduated" validate:"required"`
@@ -48,34 +61,40 @@ type Education struct{
 
 type Interests struct {
 	JsonEmbeddable
+	gorm.Model
 	Industry []Industry `json:"industries_of_interest" validate:"omitempty"`
 	Topic []Topic `json:"topics_of_interest" validate:"omitempty"`
 }
 
 type Topic struct{
 	JsonEmbeddable
+	gorm.Model
 	TopicName string `json:"topic_name" validate:"required"`
 	TopicType string `json:"topic_type" validate:"required"`
 }
 
 type Industry struct {
 	JsonEmbeddable
+	gorm.Model
 	IndustryName string `json:"industry_name" validate:"required"`
 }
 
 type Subscriptions struct {
 	JsonEmbeddable
+	gorm.Model
 	SubscriptionName string `json:"subscription_name" validate:"required"`
 	Subscribe bool `json:"subscribe" validate:"required"`
 }
 
 type Skillset struct {
 	JsonEmbeddable
+	gorm.Model
 	Skills []Skill `json:"skills" validate:"required"`
 }
 
 type Skill struct {
 	JsonEmbeddable
+	gorm.Model
 	Type string `json:"skill_type" validate:"required"`
 	Name string `json:"skill_name" validate:"required"`
 }

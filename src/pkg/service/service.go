@@ -8,14 +8,14 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"github.com/jinzhu/gorm"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/go-playground/validator.v9"
 
 	"github.com/LensPlatform/Lens/src/pkg/database"
-	model "github.com/LensPlatform/Lens/src/pkg/models"
 	"github.com/LensPlatform/Lens/src/pkg/helper"
+	model "github.com/LensPlatform/Lens/src/pkg/models"
 )
 
 // Service is a CRUD interface definition for the user microservice
@@ -34,7 +34,7 @@ type Service interface {
 var validate = validator.New()
 
 // New returns a basic Service with all of the expected middlewares wired in.
-func New(logger *zap.Logger, db *sqlx.DB, amqpProducer Queue,
+func New(logger *zap.Logger, db *gorm.DB, amqpProducer Queue,
 	amqpConsumer Queue, CreateUserRequest, successfulCreateUserReq,
 	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq,
 	successfulLogInReq, failedLogInReq metrics.Counter) Service {
@@ -50,7 +50,7 @@ func New(logger *zap.Logger, db *sqlx.DB, amqpProducer Queue,
 }
 
 // NewBasicService returns a naïve, stateless implementation of Service.
-func NewBasicService(db *sqlx.DB, logger *zap.Logger, amqpProducer Queue, amqpConsumer Queue) Service {
+func NewBasicService(db *gorm.DB, logger *zap.Logger, amqpProducer Queue, amqpConsumer Queue) Service {
 	return basicService{logger:logger, database: database.NewDatabase(db),
 		ConsumerQueues: amqpConsumer, ProducerQueues: amqpProducer}
 }
@@ -126,7 +126,7 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 
 	// check if user exists already in data store based on
 	// id, user name, and email address
-	userExists, err := s.database.DoesUserExist(currentuser.UserName)
+	userExists, err := s.database.DoesUserExist(currentuser.UserName, "username = ?")
 
 	s.logger.Info("does user exist", zap.Bool("user exists", userExists))
 
@@ -149,7 +149,7 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 
 	s.logger.Info("Adding User")
 	// Create user in database
-	err = s.database.AddUser(currentuser)
+	err = s.database.CreateUser(currentuser)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return err
