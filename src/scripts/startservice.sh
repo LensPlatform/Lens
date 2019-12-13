@@ -7,4 +7,4 @@ docker-compose rm -f
 echo "pulling latest containers from docker hub"
 docker-compose pull
 echo "spinning up services"
-docker-compose up -d
+docker-compose up
