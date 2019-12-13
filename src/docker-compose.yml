@@ -6,9 +6,9 @@ services:
       dockerfile: ./Dockerfile
     container_name: users_microservice
     ports:
-      - 8801:8085
-      - 8802:8804
-      - 8803:8080
+      - 8805:8085
+      - 8804:8804
+      - 8080:8080
     restart: always
     volumes:
       - '.:/go/src/github.com/LensPlatform/Lens/src'

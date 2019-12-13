@@ -30,6 +30,7 @@ import (
 
 	"github.com/LensPlatform/Lens/src/pkg/config"
 	"github.com/LensPlatform/Lens/src/pkg/endpoint"
+	"github.com/LensPlatform/Lens/src/pkg/models"
 	"github.com/LensPlatform/Lens/src/pkg/service"
 	"github.com/LensPlatform/Lens/src/pkg/transport"
 )
@@ -121,7 +122,35 @@ func main() {
 	db, err := initDbConnection(zapLogger)
 	defer db.Close()
 
-	amqpproducerconn, amqpconsumerconn := initQueues(err, zapLogger)
+	// connect to rabbitmq
+	amqpConnString := "amqp://user:bitnami@stats/"
+	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
+	consumerQueueNames := []string{"user_inactive"}
+	amqpproducerconn, err := service.NewAmqpConnection(amqpConnString, producerQueueNames)
+	if err != nil {
+		zapLogger.Error(err.Error())
+	}
+	amqpconsumerconn, err := service.NewAmqpConnection(amqpConnString, consumerQueueNames)
+	if err != nil {
+		zapLogger.Error(err.Error())
+	}
+
+	// Check model `User`'s table exists or not
+	if db.HasTable(&models.User{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "User"))
+		db.CreateTable(&models.User{})
+	}
+
+	if db.HasTable(&models.Team{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "Team"))
+		db.CreateTable(&models.Team{})
+	}
+
+	if db.HasTable(&models.Group{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "Group"))
+		db.CreateTable(&models.Group{})
+	}
+
 	// Build the layers of the service "onion" from the inside out. First, the
 	// business logic service; then, the set of endpoints that wrap the service;
 	// and finally, a series of concrete transport adapters. The adapters, like
