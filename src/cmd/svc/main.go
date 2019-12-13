@@ -28,6 +28,7 @@ import (
 	"sourcegraph.com/sourcegraph/appdash"
 	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
 
+	"github.com/LensPlatform/Lens/src/pkg/config"
 	"github.com/LensPlatform/Lens/src/pkg/endpoint"
 	"github.com/LensPlatform/Lens/src/pkg/service"
 	"github.com/LensPlatform/Lens/src/pkg/transport"
@@ -35,17 +36,23 @@ import (
 
 
 func main() {
+	var err error
+	// Load config file
+	err = config.LoadConfig()
+	if err != nil {
+		return
+	}
 	// Define our flags. Your service probably won't need to bind listeners for
 	// *all* supported transports, or support both Zipkin and LightStep, and so
 	// on, but we do it here for demonstration purposes.
 	fs := flag.NewFlagSet("svc", flag.ExitOnError)
 	var (
-		debugAddr      = fs.String("debug.addr", ":8084", "Debug and metrics listen address")
-		httpAddr       = fs.String("http-addr", ":8085", "HTTP listen address")
+		debugAddr      = fs.String("debug.addr", config.Config.Debug, "Debug and metrics listen address")
+		httpAddr       = fs.String("http-addr",  config.Config.Http, "HTTP listen address")
 		zipkinURL      = fs.String("zipkin-url", "", "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
 		zipkinBridge   = fs.Bool("zipkin-ot-bridge", false, "Use Zipkin OpenTracing bridge instead of native implementation")
 		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
-		appdashAddr    = fs.String("appdash-addr", "8083", "Enable Appdash tracing via an Appdash server host:port")
+		appdashAddr    = fs.String("appdash-addr", config.Config.Appdash, "Enable Appdash tracing via an Appdash server host:port")
 	)
 	fs.Usage = usageFor(fs, os.Args[0]+" [flags]")
 	_ = fs.Parse(os.Args[1:])
@@ -62,7 +69,7 @@ func main() {
 			var (
 				err         error
 				hostPort    = "localhost:80"
-				serviceName = "user"
+				serviceName = "users microservice"
 				reporter    = zipkinhttp.NewReporter(*zipkinURL)
 			)
 			defer reporter.Close()
@@ -273,19 +280,14 @@ func InitMetrics() (metrics.Counter, metrics.Counter, metrics.Counter, metrics.C
 }
 
 func initDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
-	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/users-microservice-db?sslmode=require"
+	// connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/users-microservice-db?sslmode=require"
+	connString := config.Config.GetDatabaseConnectionString()
 	db, err := gorm.Open("postgres", connString)
 	if err != nil {
 		zapLogger.Error(err.Error())
 		os.Exit(1)
 	}
-	/*
-	// Check if DB connection can be made, only for logging purposes, should not fail/exit
-	err = db.Ping()
-	if err != nil {
-		zapLogger.Error("error", zap.Any("unable to connect to database", err))
-	}
-	**/
+
 	zapLogger.Info("successfully connected to database", )
 	return db, err
 }
@@ -323,7 +325,7 @@ func initZap(logLevel string) (*zap.Logger, error) {
 
 	zapConfig := zap.Config{
 		Level:       level,
-		Development: false,
+		Development: config.Config.Development,
 		Sampling: &zap.SamplingConfig{
 			Initial:    100,
 			Thereafter: 100,

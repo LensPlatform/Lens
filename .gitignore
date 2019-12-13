@@ -1,3 +1,4 @@
 postgres-data
 profilesvc
 *.idea
+config.json

@@ -1,0 +1,12 @@
+{
+  "debug.addr": ":8084",
+  "http.addr": ":8085",
+  "appdash.addr": ":8086",
+  "dbType":"postgresql://",
+  "dbAddress":"doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/",
+  "dbName": "users-microservice-db",
+  "dbSettings" : "?sslmode=require",
+  "development" : "true",
+  "jwtSecretPassword": "lensplatformjwtpassword",
+  "issuer": "lensplatform"
+}
