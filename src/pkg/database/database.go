@@ -6,6 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
+	"github.com/LensPlatform/Lens/src/pkg/helper"
 	model "github.com/LensPlatform/Lens/src/pkg/models"
 	_ "github.com/LensPlatform/Lens/src/pkg/helper"
 )
@@ -14,6 +15,7 @@ type DBHandler interface {
 	// Create
 	CreateUser(user model.User) error
 	CreateTeam(founder model.User, team model.Team) error
+	CreateGroup(owner model.User, group model.Group) error
 
 	// GET
 	GetUserById(id string) (model.Team, error)
@@ -32,6 +34,10 @@ type DBHandler interface {
 	GetAllTeamsFromSearchQuery(search map[string]interface{}) ([]model.Team, error)
 	GetTeamBasedOnParam(param string, query string) (model.Team, error)
 
+	GetGroupBasedOnParam(param string, query string)(model.Group, error)
+	GetGroupById(id string)(model.Group, error)
+	GetGroupByName(name string)(model.Group, error)
+
 	// Update
 	UpdateUser(param map[string]interface{}, id string) (model.Team, error)
 
@@ -46,6 +52,9 @@ type DBHandler interface {
 	AddFounderToTeam(advisorMember model.TeamMember, teamId string) (model.Team, error)
 	RemoveFounderFromTeam(advisorMember model.TeamMember, teamId string) (model.Team, error)
 
+	AddMemberToGroup(memberId string, groupId string) (model.Team, error)
+	RemoveMemberFromGroup(memberId string, groupId string) (model.Team, error)
+
 	// Delete
 	DeleteUserById(id string) (bool, error)
 	DeleteUserByUsername(id string) (bool, error)
@@ -56,6 +65,8 @@ type DBHandler interface {
 	DeleteTeamByName(teamName string) (bool, error)
 	DeleteTeamTeamByEmail(teamEmail string) (bool, error)
 	DeleteTeamBasedOnParam(param string, query string) (bool, error)
+
+	DeleteGroupById(teamId string) (bool, error)
 
 	// Existence
 	DoesUserExist(searchParam string, query string) (bool, error)
@@ -103,6 +114,24 @@ func (db Database) CreateTeam(founder model.User, team model.Team) error {
 	team.NumberOfEmployees = len(team.TeamMembers) + len(team.Advisors) + len(team.Founders)
 
 	e := db.connection.Create(&team).Error
+
+	if e != nil {
+		return e
+	}
+	return nil
+}
+
+func (db Database) 	CreateGroup(owner model.User, group model.Group) error {
+	if owner.ID == "" || group.ID == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. " +
+			"one of the following arguments are null User Id : %s, Group Id : %s", owner.ID,  group.ID )
+		return errors.New(errMsg)
+	}
+
+	group.Owner = owner.ID
+	group.NumGroupMembers = 1
+
+	e := db.connection.Create(&group).Error
 
 	if e != nil {
 		return e
@@ -238,6 +267,30 @@ func (db Database) GetTeamBasedOnParam(param string, query string)(model.Team, e
 		return model.Team{}, e
 	}
 	return team, nil
+}
+
+func (db Database) GetGroupById(id string)(model.Group, error) {
+	return  db.GetGroupBasedOnParam(id, "id=?")
+}
+
+func (db Database) GetGroupByName(name string)(model.Group, error){
+	return  db.GetGroupBasedOnParam(name, "name=?")
+}
+
+func (db Database) GetGroupBasedOnParam(param string, query string)(model.Group, error){
+	if param == ""  || query == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
+			"the following params are null Search Param : %s, Query : %s", param, query)
+		return model.Group{}, errors.New(errMsg)
+	}
+
+	var group model.Group
+	e := db.connection.First(&group, query, param).Error
+
+	if e != nil{
+		return model.Group{}, e
+	}
+	return group, nil
 }
 
 func (db Database) DoesUserExist(searchParam string, query string) (bool, error) {
@@ -533,6 +586,60 @@ func (db Database) RemoveFounderFromTeam(founderMember model.TeamMember, teamId 
 	return team, nil
 }
 
+func (db Database) AddMemberToGroup(memberId string, groupId string) (model.Group, error){
+	group, err := db.GetGroupById(groupId)
+	if err != nil {
+		return model.Group{}, err
+	}
+
+	if memberId == "" {
+		return model.Group{}, helper.ErrInvalidArgumentProvided
+	}
+
+	group.GroupMembers = append(group.GroupMembers, memberId)
+	group.NumGroupMembers = len(group.GroupMembers)
+
+	err = db.connection.Save(&group).Error
+
+	if err != nil {
+		return model.Group{}, err
+	}
+	return group, nil
+
+}
+
+func (db Database) RemoveMemberFromGroup(memberId string, groupId string) (model.Group, error) {
+	group, err := db.GetGroupById(groupId)
+	if err != nil {
+		return model.Group{}, err
+	}
+
+	if memberId == "" {
+		return model.Group{}, helper.ErrInvalidArgumentProvided
+	}
+
+	var index int
+
+	for i, item := range group.GroupMembers {
+		if item == memberId {
+			index = i
+			break
+		}
+	}
+
+	group.GroupMembers[index] = group.GroupMembers[len(group.GroupMembers)-1]
+	group.GroupMembers = group.GroupMembers[:len(group.GroupMembers)-1]
+	group.NumGroupMembers = len(group.GroupMembers)
+
+	err = db.connection.Save(&group).Error
+
+	if err != nil {
+		return model.Group{}, err
+	}
+
+	return group, nil
+}
+
 func (db Database) DeleteUserById(id string) (bool, error){
 	query := "id = ?"
 	return db.DeleteUserBasedOnParam(id,query)
@@ -596,6 +703,23 @@ func (db Database) 	DeleteTeamBasedOnParam(param string, query string) (bool, er
 	}
 
 	err = db.connection.Set("gorm:delete_option", "OPTION (OPTIMIZE FOR UNKNOWN)").Delete(&team).Error
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (db Database) 	DeleteGroupById(groupId string) (bool, error) {
+	group, err := db.GetGroupById(groupId)
+	if err != nil {
+		return false, err
+	}
+
+	if group.ID == ""{
+		return false, nil
+	}
+
+	err = db.connection.Set("gorm:delete_option", "OPTION (OPTIMIZE FOR UNKNOWN)").Delete(&group).Error
 	if err != nil {
 		return false, err
 	}

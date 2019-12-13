@@ -11,7 +11,7 @@ services:
       - 8803:8080
     restart: always
     volumes:
-      - '.:/go/src/github.com/LensPlatform/Lens'
+      - '.:/go/src/github.com/LensPlatform/Lens/src'
     networks:
       - app-tier
   stats:

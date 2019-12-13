@@ -28,10 +28,9 @@ import (
 	"sourcegraph.com/sourcegraph/appdash"
 	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
 
-	"github.com/LensPlatform/Lens/src/pkg/transport"
-
 	"github.com/LensPlatform/Lens/src/pkg/endpoint"
 	"github.com/LensPlatform/Lens/src/pkg/service"
+	"github.com/LensPlatform/Lens/src/pkg/transport"
 )
 
 
@@ -46,7 +45,7 @@ func main() {
 		zipkinURL      = fs.String("zipkin-url", "", "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
 		zipkinBridge   = fs.Bool("zipkin-ot-bridge", false, "Use Zipkin OpenTracing bridge instead of native implementation")
 		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
-		appdashAddr    = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
+		appdashAddr    = fs.String("appdash-addr", "8083", "Enable Appdash tracing via an Appdash server host:port")
 	)
 	fs.Usage = usageFor(fs, os.Args[0]+" [flags]")
 	_ = fs.Parse(os.Args[1:])
