@@ -49,7 +49,7 @@ func main() {
 	var (
 		debugAddr      = fs.String("debug.addr", config.Config.Debug, "Debug and metrics listen address")
 		httpAddr       = fs.String("http-addr",  config.Config.Http, "HTTP listen address")
-		zipkinURL      = fs.String("zipkin-url", "", "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
+		zipkinURL      = fs.String("zipkin-url", config.Config.Zipkin, "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
 		zipkinBridge   = fs.Bool("zipkin-ot-bridge", false, "Use Zipkin OpenTracing bridge instead of native implementation")
 		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
 		appdashAddr    = fs.String("appdash-addr", config.Config.Appdash, "Enable Appdash tracing via an Appdash server host:port")
@@ -73,7 +73,11 @@ func main() {
 				reporter    = zipkinhttp.NewReporter(*zipkinURL)
 			)
 			defer reporter.Close()
-			zEP, _ := zipkin.NewEndpoint(serviceName, hostPort)
+			zEP, err := zipkin.NewEndpoint(serviceName, hostPort)
+			if err != nil {
+				zapLogger.Error(err.Error())
+				os.Exit(1)
+			}
 			zipkinTracer, err = zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(zEP))
 			if err != nil {
 				zapLogger.Error(err.Error())
@@ -280,7 +284,6 @@ func InitMetrics() (metrics.Counter, metrics.Counter, metrics.Counter, metrics.C
 }
 
 func initDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
-	// connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/users-microservice-db?sslmode=require"
 	connString := config.Config.GetDatabaseConnectionString()
 	db, err := gorm.Open("postgres", connString)
 	if err != nil {

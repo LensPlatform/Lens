@@ -14,6 +14,7 @@ import (
 type Configuration struct {
 	Debug      string `json:"debug.addr"`
 	Http       string `json:"http.addr"`
+	Zipkin      string `json:"zipkin.addr"`
 	Appdash       string `json:"appdash.addr"`
 	DbType      string `json:"dbType"`
 	DbAddress   string `json:"dbAddress"`
