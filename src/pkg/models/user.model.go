@@ -2,7 +2,7 @@ package models
 
 import (
 	"time"
-
+	"github.com/google/uuid"
 	"github.com/jinzhu/gorm"
 )
 
@@ -10,7 +10,6 @@ import (
 // ID should always be globally unique
 type User struct {
 	JsonEmbeddable
-	gorm.Model
 	ID string `json:"id" validate:"-" gorm:"primary_key"`
 	Type string `json:"user_type" validate:"required"`
 	FirstName string `json:"first_name" validate:"required" sql:"firstname"`
@@ -36,8 +35,8 @@ type User struct {
 	Groups []string `json: "associated_groups,omitempty" validate:"-" sql: "groups"`
 	SocialMedia SocialMedia `json:"social_media,omitempty" validate:"-" sql:"social_media"`
 	Settings Settings `json:"settings,omitempty" validate:"-" sql:"settings"`
-	CreatedAt time.Time `json:"created_at" validate:"-"`
-	UpdatedAt time.Time `json:"updated_at" validate:"-"`
+	CreatedAt string `json:"created_at" validate:"-"`
+	UpdatedAt string `json:"updated_at" validate:"-"`
 }
 
 type Address struct {
@@ -99,6 +98,29 @@ type Skill struct {
 	Name string `json:"skill_name" validate:"required"`
 }
 
+func (user User) BeforeCreate(scope *gorm.Scope) error {
+	id := uuid.New()
+	err := scope.SetColumn("createdat", time.Now().String())
 
+	if err != nil{
+		return err
+	}
 
+	err = scope.SetColumn("updatedat", time.Now().String())
+
+	if err != nil{
+		return err
+	}
+
+	return scope.SetColumn("id", id.String())
+}
+
+func (user User) BeforeUpdate(scope *gorm.Scope) error {
+	err := scope.SetColumn("updatedat", time.Now().String())
+
+	if err != nil{
+		return err
+	}
+	return nil
+}
 
