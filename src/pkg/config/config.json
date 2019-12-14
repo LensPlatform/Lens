@@ -9,7 +9,7 @@
   "dbAddress":"doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/",
   "dbName": "users-microservice-db",
   "dbSettings" : "?sslmode=require",
-  "development" : "true",
+  "development" : "false",
   "jwtSecretPassword": "lensplatformjwtpassword",
   "issuer": "lensplatform",
   "serviceName" : "users_microservice"

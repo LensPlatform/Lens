@@ -9,8 +9,11 @@ DOCKER_IMAGE_NAME:=$(DOCKER_REPOSITORY)/$(NAME)
 GIT_COMMIT:=$(shell git describe --dirty --always)
 VERSION:=$(shell grep 'VERSION' pkg/version/version.go | awk '{ print $$4 }' | tr -d '"')
 
+clean:
+	GO111MODULE= cd src && ./scripts/cleanup.sh && cd ..
+
 start-services:
-	GO111MODULE= cd src && ./scripts/cleanup.sh && ./scripts/startservice.sh && cd ..
+	docker-compose up
 
 run:
 	GO111MODULE=on go run -ldflags "-s -w -X github.com/LensPlatform/Lens/src/pkg/version.REVISION=$(GIT_COMMIT)" cmd/svc/* \
