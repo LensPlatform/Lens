@@ -50,16 +50,16 @@ func main() {
 	var (
 		debugAddr      = fs.String("debug.addr", config.Config.Debug, "Debug and metrics listen address")
 		httpAddr       = fs.String("http-addr",  config.Config.Http, "HTTP listen address")
-		zipkinURL      = fs.String("zipkin-url", config.Config.Zipkin, "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
-		zipkinBridge   = fs.Bool("zipkin-ot-bridge", false, "Use Zipkin OpenTracing bridge instead of native implementation")
+		zipkinURL      = fs.String("zipkin-url", config.Config.ZipkinUrl, "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
+		zipkinBridge   = fs.Bool("zipkin-ot-bridge", config.Config.UseZipkin, "Use Zipkin OpenTracing bridge instead of native implementation")
 		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
-		appdashAddr    = fs.String("appdash-addr", config.Config.Appdash, "Enable Appdash tracing via an Appdash server host:port")
+		appdashAddr    = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
 	)
 	fs.Usage = usageFor(fs, os.Args[0]+" [flags]")
 	_ = fs.Parse(os.Args[1:])
 
 	// configure logging
-	zapLogger, _ := initZap(viper.GetString("level"))
+	zapLogger, _ := InitZap(viper.GetString("level"))
 	defer zapLogger.Sync()
 	stdLog := zap.RedirectStdLog(zapLogger)
 	defer stdLog()
@@ -69,8 +69,8 @@ func main() {
 		if *zipkinURL != "" {
 			var (
 				err         error
-				hostPort    = "localhost:80"
-				serviceName = "users microservice"
+				hostPort    = config.Config.Zipkin
+				serviceName = config.Config.ServiceName
 				reporter    = zipkinhttp.NewReporter(*zipkinURL)
 			)
 			defer reporter.Close()
@@ -79,7 +79,14 @@ func main() {
 				zapLogger.Error(err.Error())
 				os.Exit(1)
 			}
-			zipkinTracer, err = zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(zEP))
+
+			sampler, err := zipkin.NewCountingSampler(1)
+			if err != nil {
+				zapLogger.Error(err.Error())
+				os.Exit(1)
+			}
+
+			zipkinTracer, err = zipkin.NewTracer(reporter, zipkin.WithSampler(sampler), zipkin.WithLocalEndpoint(zEP))
 			if err != nil {
 				zapLogger.Error(err.Error())
 				os.Exit(1)
@@ -115,55 +122,20 @@ func main() {
 		}
 	}
 
-	CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq, successfulLogInReq, failedLogInReq, duration := InitMetrics()
+	counters := InitMetrics()
 	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
 
 	// configure sql db connection
-	db, err := initDbConnection(zapLogger)
+	db, err := InitDbConnection(zapLogger)
+	if err != nil {
+		zapLogger.Error(err.Error(), zap.String("Connection Error", "Unable To Connect To Database"))
+	}
 	defer db.Close()
 
 	// connect to rabbitmq
-	amqpConnString := "amqp://user:bitnami@stats/"
-	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
-	consumerQueueNames := []string{"user_inactive"}
-	amqpproducerconn, err := service.NewAmqpConnection(amqpConnString, producerQueueNames)
-	if err != nil {
-		zapLogger.Error(err.Error())
-	}
-	amqpconsumerconn, err := service.NewAmqpConnection(amqpConnString, consumerQueueNames)
-	if err != nil {
-		zapLogger.Error(err.Error())
-	}
+	amqpproducerconn, amqpconsumerconn := InitQueues(zapLogger)
 
-	// Check model `User`'s table exists or not
-	if db.HasTable(&models.User{}) == false{
-		zapLogger.Info("Table :", zap.String("Table Created", "User"))
-		db.CreateTable(&models.User{})
-	}
-
-	if db.HasTable(&models.Team{}) == false{
-		zapLogger.Info("Table :", zap.String("Table Created", "Team"))
-		db.CreateTable(&models.Team{})
-	}
-
-	if db.HasTable(&models.Group{}) == false{
-		zapLogger.Info("Table :", zap.String("Table Created", "Group"))
-		db.CreateTable(&models.Group{})
-	}
-
-	// Build the layers of the service "onion" from the inside out. First, the
-	// business logic service; then, the set of endpoints that wrap the service;
-	// and finally, a series of concrete transport adapters. The adapters, like
-	// the HTTP handler or the gRPC server, are the bridge between Go kit and
-	// the interfaces that the transports expect. Note that we're not binding
-	// them to ports or anything yet; we'll do that next.
-	var (
-		userservice = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, CreateUserRequest, successfulCreateUserReq,
-			failedCreateUserReq, getUserRequests, successfulGetUserReq,
-			failedGetUserReq, successfulLogInReq, failedLogInReq)
-		endpoints   = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)
-		httpHandler = transport.NewHTTPHandler(userservice, endpoints, duration, tracer, zipkinTracer, zapLogger)
-	)
+	httpHandler := InitService(zapLogger, db, amqpproducerconn, amqpconsumerconn, counters, tracer, zipkinTracer)
 
 	// Now we're to the part of the func main where we want to start actually
 	// running things, like servers bound to listeners to receive connections.
@@ -191,11 +163,10 @@ func main() {
 			zapLogger.Info("service connected", zap.String("transport", "debug/HTTP"), zap.String("addr", *debugAddr))
 			return http.Serve(debugListener, http.DefaultServeMux)
 		}, func(error) {
-			debugListener.Close()
+			_ = debugListener.Close()
 		})
 	}
 	{
-		// The HTTP listener mounts the Go kit HTTP handler we created.
 		httpListener, err := net.Listen("tcp", *httpAddr)
 		if err != nil {
 			zapLogger.Info("transport", zap.String("transport", "debug/HTTP"), zap.Any("err", err))
@@ -227,7 +198,25 @@ func main() {
 	zapLogger.Info("exit", zap.Any("exiting process", g.Run()))
 }
 
-func initQueues(err error, zapLogger *zap.Logger) (service.Queue, service.Queue) {
+func InitService(zapLogger *zap.Logger, db *gorm.DB, amqpproducerconn service.Queue,
+	             amqpconsumerconn service.Queue, counter service.Counters,
+	             tracer stdopentracing.Tracer, zipkinTracer *zipkin.Tracer) http.Handler {
+
+	// Build the layers of the service "onion" from the inside out. First, the
+	// business logic service; then, the set of endpoints that wrap the service;
+	// and finally, a series of concrete transport adapters. The adapters, like
+	// the HTTP handler or the gRPC server, are the bridge between Go kit and
+	// the interfaces that the transports expect. Note that we're not binding
+	// them to ports or anything yet; we'll do that next.
+	var (
+		svc = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, counter)
+		endpoints   = endpoint.New(svc, zapLogger, counter.Duration, tracer, zipkinTracer)
+		httpHandler = transport.NewHTTPHandler(svc, endpoints, counter.Duration, tracer, zipkinTracer, zapLogger)
+	)
+	return httpHandler
+}
+
+func InitQueues(zapLogger *zap.Logger) (service.Queue, service.Queue) {
 	// connect to rabbitmq
 	amqpConnString := "amqp://user:bitnami@stats/"
 	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
@@ -243,14 +232,14 @@ func initQueues(err error, zapLogger *zap.Logger) (service.Queue, service.Queue)
 	return amqpproducerconn, amqpconsumerconn
 }
 
-func InitMetrics() (metrics.Counter, metrics.Counter, metrics.Counter, metrics.Counter, metrics.Counter, metrics.Counter, metrics.Counter, metrics.Counter, metrics.Histogram) {
+func InitMetrics() service.Counters {
 	// Create the (sparse) metrics we'll use in the service. They, too, are
 	// dependencies that we pass to components that use them.
-	var CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq,
+	var createUserReq, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq,
 	failedGetUserReq, successfulLogInReq, failedLogInReq metrics.Counter
 	{
 		// Business-level metrics.
-		CreateUserRequest = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		createUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: "users",
 			Subsystem: "users",
 			Name:      "create_user_requests",
@@ -309,10 +298,23 @@ func InitMetrics() (metrics.Counter, metrics.Counter, metrics.Counter, metrics.C
 			Help:      "Request duration in seconds.",
 		}, []string{"method", "success"})
 	}
-	return CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq, successfulLogInReq, failedLogInReq, duration
+
+	counter := service.Counters{
+		CreateUserRequest:createUserReq,
+		SuccessfulCreateUserRequest:successfulCreateUserReq,
+		FailedCreateUserRequest:failedCreateUserReq,
+		GetUserRequest:getUserRequests,
+		SuccessfulGetUserRequest:successfulGetUserReq,
+		FailedGetUserRequest:failedGetUserReq,
+		SuccessfulLogInRequest:successfulLogInReq,
+		FailedLogInRequest:failedLogInReq,
+		Duration: duration,
+	}
+
+	return counter
 }
 
-func initDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
+func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 	connString := config.Config.GetDatabaseConnectionString()
 	db, err := gorm.Open("postgres", connString)
 	if err != nil {
@@ -321,10 +323,26 @@ func initDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 	}
 
 	zapLogger.Info("successfully connected to database", )
+
+	if db.HasTable(&models.User{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "User"))
+		db.CreateTable(&models.User{})
+	}
+
+	if db.HasTable(&models.Team{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "Team"))
+		db.CreateTable(&models.Team{})
+	}
+
+	if db.HasTable(&models.Group{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "Group"))
+		db.CreateTable(&models.Group{})
+	}
+
 	return db, err
 }
 
-func initZap(logLevel string) (*zap.Logger, error) {
+func InitZap(logLevel string) (*zap.Logger, error) {
 	level := zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	switch logLevel {
 	case "debug":

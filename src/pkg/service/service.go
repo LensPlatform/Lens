@@ -7,7 +7,6 @@ import (
 	"unsafe"
 
 	"github.com/go-kit/kit/metrics"
-	"github.com/google/uuid"
 	"github.com/jinzhu/gorm"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -31,20 +30,27 @@ type Service interface {
 	LogIn(ctx context.Context, username, password string)(user model.User, err error)
 }
 
+type Counters struct {
+	CreateUserRequest metrics.Counter
+	SuccessfulCreateUserRequest metrics.Counter
+	FailedCreateUserRequest metrics.Counter
+	GetUserRequest metrics.Counter
+	SuccessfulGetUserRequest metrics.Counter
+	FailedGetUserRequest metrics.Counter
+	SuccessfulLogInRequest metrics.Counter
+	FailedLogInRequest metrics.Counter
+	Duration metrics.Histogram
+}
+
 var validate = validator.New()
 
 // New returns a basic Service with all of the expected middlewares wired in.
-func New(logger *zap.Logger, db *gorm.DB, amqpProducer Queue,
-	amqpConsumer Queue, CreateUserRequest, successfulCreateUserReq,
-	failedCreateUserReq, getUserRequests, successfulGetUserReq, failedGetUserReq,
-	successfulLogInReq, failedLogInReq metrics.Counter) Service {
+func New(logger *zap.Logger, db *gorm.DB, amqpProducer Queue, amqpConsumer Queue, counters Counters) Service {
 	var svc Service
 	{
 		svc = NewBasicService(db, logger, amqpProducer, amqpConsumer)
 		svc = LoggingMiddleware(logger)(svc)
-		svc = InstrumentingMiddleware(CreateUserRequest, successfulCreateUserReq,
-			failedCreateUserReq, getUserRequests, successfulGetUserReq,
-			failedGetUserReq,successfulLogInReq, failedLogInReq )(svc)
+		svc = InstrumentingMiddleware(counters)(svc)
 	}
 	return svc
 }
@@ -130,8 +136,11 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 
 	s.logger.Info("does user exist", zap.Bool("user exists", userExists))
 
+	if userExists == true {
+		return helper.ErrUserAlreadyExists
+	}
+
 	if err != nil{
-		s.logger.Info("Bad error man bad error")
 		s.logger.Error(err.Error())
 		return  err
 	}
@@ -144,8 +153,6 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 	if err != nil {
 		return err
 	}
-	// create a user id
-	currentuser.ID = uuid.New().String()
 
 	s.logger.Info("Adding User")
 	// Create user in database
@@ -237,6 +244,7 @@ func (s basicService) getUserFromQueryParam(ctx context.Context, query string, p
 		s.logger.Error(err.Error())
 		return model.User{}, err
 	}
+
 	return user, nil
 }
 

@@ -15,6 +15,8 @@ type Configuration struct {
 	Debug      string `json:"debug.addr"`
 	Http       string `json:"http.addr"`
 	Zipkin      string `json:"zipkin.addr"`
+	ZipkinUrl     string `json:"zipkin.url"`
+	UseZipkin   bool `json:"zipkin.use"`
 	Appdash       string `json:"appdash.addr"`
 	DbType      string `json:"dbType"`
 	DbAddress   string `json:"dbAddress"`
@@ -23,6 +25,7 @@ type Configuration struct {
 	Development bool   `json:"development"`
 	JwtSecretPassword string `json:"jwtSecretPassword"`
 	Issuer            string `json:"issuer"`
+	ServiceName     string `json:"serviceName"`
 }
 
 // Config shares the global configuration
