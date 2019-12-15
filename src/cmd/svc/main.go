@@ -30,7 +30,7 @@ import (
 
 	"github.com/LensPlatform/Lens/src/pkg/config"
 	"github.com/LensPlatform/Lens/src/pkg/endpoint"
-	"github.com/LensPlatform/Lens/src/pkg/models"
+	"github.com/LensPlatform/Lens/src/pkg/models/tables"
 	"github.com/LensPlatform/Lens/src/pkg/service"
 	"github.com/LensPlatform/Lens/src/pkg/transport"
 )
@@ -45,10 +45,10 @@ func main() {
 	// on, but we do it here for demonstration purposes.
 	fs := flag.NewFlagSet("svc", flag.ExitOnError)
 	var (
-		debugAddr      = fs.String("debug.addr", config.Config.Debug, "Debug and metrics listen address")
-		httpAddr       = fs.String("http-addr",  config.Config.Http, "HTTP listen address")
-		zipkinURL      = fs.String("zipkin-url", config.Config.ZipkinUrl, "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
-		zipkinBridge   = fs.Bool("zipkin-ot-bridge", config.Config.UseZipkin, "Use Zipkin OpenTracing bridge instead of native implementation")
+		debugAddr      = fs.String("debug.addr", ":8084", "Debug and metrics listen address")
+		httpAddr       = fs.String("http-addr",  ":8085", "HTTP listen address")
+		zipkinURL      = fs.String("zipkin-url", "", "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
+		zipkinBridge   = fs.Bool("zipkin-ot-bridge", true, "Use Zipkin OpenTracing bridge instead of native implementation")
 		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
 		appdashAddr    = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
 	)
@@ -66,11 +66,10 @@ func main() {
 		if *zipkinURL != "" {
 			var (
 				err         error
-				hostPort    = config.Config.Zipkin
-				serviceName = config.Config.ServiceName
+				hostPort    = ":8080"
+				serviceName = "users_microservice"
 				reporter    = zipkinhttp.NewReporter(*zipkinURL)
 			)
-			fmt.Println(serviceName)
 			defer reporter.Close()
 			zEP, err := zipkin.NewEndpoint(serviceName, hostPort)
 			if err != nil {
@@ -286,6 +285,7 @@ func InitMetrics() service.Counters {
 			Help:      "Total count of failed login requests.",
 		}, []string{})
 	}
+
 	var duration metrics.Histogram
 	{
 		// Endpoint-level metrics.
@@ -321,23 +321,20 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 	}
 
 	zapLogger.Info("successfully connected to database", )
-
-	if db.HasTable(&models.User{}) == false{
-		zapLogger.Info("Table :", zap.String("Table Created", "User"))
-		db.CreateTable(&models.User{})
-	}
-
-	if db.HasTable(&models.Team{}) == false{
-		zapLogger.Info("Table :", zap.String("Table Created", "Team"))
-		db.CreateTable(&models.Team{})
-	}
-
-	if db.HasTable(&models.Group{}) == false{
-		zapLogger.Info("Table :", zap.String("Table Created", "Group"))
-		db.CreateTable(&models.Group{})
-	}
+	db.SingularTable(true)
+	CreateTablesOrMigrateSchemas(db, zapLogger)
 
 	return db, err
+}
+
+func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
+	var userTable tables.UserTable
+	var teamsTable tables.TeamTable
+	var groupTable tables.GroupTable
+
+	userTable.MigrateSchemaOrCreateTable(db, zapLogger)
+	teamsTable.MigrateSchemaOrCreateTable(db, zapLogger)
+	groupTable.MigrateSchemaOrCreateTable(db, zapLogger)
 }
 
 func InitZap(logLevel string) (*zap.Logger, error) {
@@ -383,7 +380,6 @@ func InitZap(logLevel string) (*zap.Logger, error) {
 		OutputPaths:      []string{"stderr"},
 		ErrorOutputPaths: []string{"stderr"},
 	}
-
 	return zapConfig.Build()
 }
 

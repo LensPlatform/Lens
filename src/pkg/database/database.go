@@ -82,9 +82,9 @@ func NewDatabase(db *gorm.DB) *Database {
 }
 
 func (db Database) CreateUser(user model.User) error {
-	if user.ID == ""{
+	if user.CurrentID == 0 {
 		errMsg := fmt.Sprintf("Invalid Argument provided. " +
-			"the following param is null User Id : %s", user.ID)
+			"the following param is null User Id : %d", user.CurrentID)
 		return errors.New(errMsg)
 	}
 
@@ -97,9 +97,9 @@ func (db Database) CreateUser(user model.User) error {
 }
 
 func (db Database) CreateTeam(founder model.User, team model.Team) error {
-	if founder.ID == ""  || team.ID == "" {
+	if founder.CurrentID == 0  || team.ID == 0 {
 		errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
-			"the following params are null Team Id : %s, Founder ID : %s", founder.ID, team.ID)
+			"the following params are null Founder Id : %d, Team ID : %d", founder.CurrentID, team.ID)
 		return errors.New(errMsg)
 	}
 
@@ -107,7 +107,7 @@ func (db Database) CreateTeam(founder model.User, team model.Team) error {
 	var founders []model.TeamMember
 
 	founderName := fmt.Sprintf("%s %s", founder.FirstName, founder.LastName)
-	teamMember = model.TeamMember{ID : founder.ID, Name : founderName, Title: "founder"}
+	teamMember = model.TeamMember{Id : founder.CurrentID, Name : founderName, Title: "founder"}
 
 	founders = append(team.Founders, teamMember)
 	team.Founders = founders
@@ -122,13 +122,13 @@ func (db Database) CreateTeam(founder model.User, team model.Team) error {
 }
 
 func (db Database) 	CreateGroup(owner model.User, group model.Group) error {
-	if owner.ID == "" || group.ID == "" {
+	if owner.CurrentID == 0 || group.ID == "" {
 		errMsg := fmt.Sprintf("Invalid Argument provided. " +
-			"one of the following arguments are null User Id : %s, Group Id : %s", owner.ID,  group.ID )
+			"one of the following arguments are null User Id : %d, Group Id : %s", owner.CurrentID,  group.ID )
 		return errors.New(errMsg)
 	}
 
-	group.Owner = owner.ID
+	group.Owner = owner.CurrentID
 	group.NumGroupMembers = 1
 
 	e := db.connection.Create(&group).Error
@@ -302,7 +302,7 @@ func (db Database) DoesUserExist(searchParam string, query string) (bool, error)
 		return false, err
 	}
 
-	if user.ID != ""{
+	if user.CurrentID != 0{
 		return true, nil
 	}
 
@@ -317,7 +317,7 @@ func (db Database) DoesTeamExist(searchParam string, query string) (bool, error)
 		return false, err
 	}
 
-	if team.ID != "" {
+	if team.ID != 0 {
 		return true, nil
 	}
 
@@ -400,9 +400,9 @@ func (db Database) UpdateTeamIndustry(industry string, teamId string)  (model.Te
 }
 
 func (db Database) AddTeamMemberToTeam(teamMember model.TeamMember, teamId string) (model.Team, error) {
-	if teamMember.ID == ""  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %s, Team Member" +
-			" ID : %s", teamMember.ID, teamId)
+	if teamMember.Id == 0 || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+			" ID : %s", teamMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
 
@@ -427,9 +427,9 @@ func (db Database) AddTeamMemberToTeam(teamMember model.TeamMember, teamId strin
 }
 
 func (db Database) RemoveTeamMemberFromTeam(teamMember model.TeamMember, teamId string) (model.Team, error) {
-	if teamMember.ID == ""  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %s, Team Member" +
-			" ID : %s", teamMember.ID, teamId)
+	if teamMember.Id == 0  || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+			" ID : %s", teamMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
 
@@ -443,7 +443,7 @@ func (db Database) RemoveTeamMemberFromTeam(teamMember model.TeamMember, teamId 
 	var index int
 
 	for i, item := range team.TeamMembers {
-		if item.ID == teamMember.ID {
+		if item.Id == teamMember.Id {
 			index = i
 			break
 		}
@@ -462,9 +462,9 @@ func (db Database) RemoveTeamMemberFromTeam(teamMember model.TeamMember, teamId 
 }
 
 func (db Database) AddAdvisorToTeam(advisorMember model.TeamMember, teamId string) (model.Team, error) {
-	if advisorMember.ID == ""  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %s, Team Member" +
-			" ID : %s", advisorMember.ID, teamId)
+	if advisorMember.Id == 0  || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+			" ID : %s", advisorMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
 
@@ -489,9 +489,9 @@ func (db Database) AddAdvisorToTeam(advisorMember model.TeamMember, teamId strin
 }
 
 func (db Database) RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId string) (model.Team, error) {
-	if advisorMember.ID == ""  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %s, Team Member" +
-			" ID : %s", advisorMember.ID, teamId)
+	if advisorMember.Id == 0  || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+			" ID : %s", advisorMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
 
@@ -505,7 +505,7 @@ func (db Database) RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId 
 	var index int
 
 	for i, item := range team.Advisors {
-		if item.ID == advisorMember.ID {
+		if item.Id == advisorMember.Id {
 			index = i
 			break
 		}
@@ -524,9 +524,9 @@ func (db Database) RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId 
 }
 
 func (db Database) AddFounderToTeam(founderMember model.TeamMember, teamId string)  (model.Team, error) {
-	if founderMember.ID == ""  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %s, Team Member" +
-			" ID : %s", founderMember.ID, teamId)
+	if founderMember.Id == 0  || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+			" ID : %s", founderMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
 
@@ -551,9 +551,9 @@ func (db Database) AddFounderToTeam(founderMember model.TeamMember, teamId strin
 }
 
 func (db Database) RemoveFounderFromTeam(founderMember model.TeamMember, teamId string) (model.Team, error) {
-	if founderMember.ID == ""  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %s, Team Member" +
-			" ID : %s", founderMember.ID, teamId)
+	if founderMember.Id == 0  || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+			" ID : %s", founderMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
 
@@ -567,7 +567,7 @@ func (db Database) RemoveFounderFromTeam(founderMember model.TeamMember, teamId 
 	var index int
 
 	for i, item := range team.Advisors {
-		if item.ID == founderMember.ID {
+		if item.Id == founderMember.Id {
 			index = i
 			break
 		}
@@ -663,7 +663,7 @@ func (db Database) 	DeleteUserBasedOnParam(param string, query string) (bool, er
 		return false, err
 	}
 
-	if user.ID == ""{
+	if user.CurrentID == 0 {
 		return false, nil
 	}
 
@@ -698,7 +698,7 @@ func (db Database) 	DeleteTeamBasedOnParam(param string, query string) (bool, er
 		return false, err
 	}
 
-	if team.ID == ""{
+	if team.ID == 0{
 		return false, nil
 	}
 
