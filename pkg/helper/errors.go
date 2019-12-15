@@ -14,6 +14,7 @@ var (
 	ErrNoPasswordProvided = errors.New("no password provided")
 	ErrInvalidUsernameProvided = errors.New("invalid username provided")
 	ErrInvalidPasswordProvided = errors.New("invalid password provided")
+	ErrInvalidArgumentProvided = errors.New("invalid argument/s provided")
 
 	ErrInconsistentIDs = errors.New("inconsistent IDs")
 	ErrAlreadyExists   = errors.New("already exists")

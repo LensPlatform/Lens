@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
 	"github.com/lightstep/lightstep-tracer-go"
 	"github.com/oklog/oklog/pkg/group"
@@ -29,6 +29,8 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
 
+	"github.com/LensPlatform/Lens/pkg/config"
+	"github.com/LensPlatform/Lens/pkg/models"
 	"github.com/LensPlatform/Lens/pkg/transport"
 
 	"github.com/LensPlatform/Lens/pkg/endpoint"
@@ -37,6 +39,7 @@ import (
 
 
 func main() {
+
 	// Define our flags. Your service probably won't need to bind listeners for
 	// *all* supported transports, or support both Zipkin and LightStep, and so
 	// on, but we do it here for demonstration purposes.
@@ -53,7 +56,7 @@ func main() {
 	_ = fs.Parse(os.Args[1:])
 
 	// configure logging
-	zapLogger, _ := initZap(viper.GetString("level"))
+	zapLogger, _ := InitZap(viper.GetString("level"))
 	defer zapLogger.Sync()
 	stdLog := zap.RedirectStdLog(zapLogger)
 	defer stdLog()
@@ -105,117 +108,21 @@ func main() {
 		}
 	}
 
-	// Create the (sparse) metrics we'll use in the service. They, too, are
-	// dependencies that we pass to components that use them.
-	var  CreateUserRequest, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq,
-	failedGetUserReq, successfulLogInReq,failedLogInReq metrics.Counter
-	{
-		// Business-level metrics.
-		CreateUserRequest = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "create_user_requests",
-			Help:      "Total count of create user requests via the CreateUser method.",
-		}, []string{})
-		successfulCreateUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "create_user_success_ops",
-			Help:      "Total count of successful create user requests via the CreateUser method.",
-		}, []string{})
-		failedCreateUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "create_user_failed_ops",
-			Help:      "Total count of failed create user requests via the CreateUser method.",
-		}, []string{})
-		getUserRequests = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "get_user_requests",
-			Help:      "Total count of get user requests.",
-		}, []string{})
-		successfulGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-		Namespace: "users",
-		Subsystem: "users",
-		Name:      "get_user_requests_success_ops",
-		Help:      "Total count of successful get user requests.",
-	}, []string{})
-		failedGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "get_user_requests_failed_ops",
-			Help:      "Total count of failed get user requests.",
-		}, []string{})
-		successfulLogInReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "login_requests_sucess_ops",
-			Help:      "Total count of successful logIn requests.",
-		}, []string{})
-		failedLogInReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "login_requests_failed_ops",
-			Help:      "Total count of failed login requests.",
-		}, []string{})
-	}
-	var duration metrics.Histogram
-	{
-		// Endpoint-level metrics.
-		duration = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-			Namespace: "users",
-			Subsystem: "users",
-			Name:      "request_duration_seconds",
-			Help:      "Request duration in seconds.",
-		}, []string{"method", "success"})
-	}
 	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
 
+	counters := InitMetrics()
+
 	// configure sql db connection
-	connString := "postgresql://doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/defaultdb?sslmode=require"
-	db, err := sqlx.Open("postgres", connString)
+	db, err := InitDbConnection(zapLogger)
 	if err != nil {
-		zapLogger.Error(err.Error())
-		os.Exit(1)
+		zapLogger.Error(err.Error(), zap.String("Connection Error", "Unable To Connect To Database"))
 	}
 	defer db.Close()
 
-	// Check if DB connection can be made, only for logging purposes, should not fail/exit
-	err = db.Ping()
-	if err != nil {
-		zapLogger.Error("error", zap.Any("unable to connect to database", err))
-	}
-
-	zapLogger.Info("successfully connected to database",)
-
 	// connect to rabbitmq
-	amqpConnString := "amqp://user:bitnami@stats/"
-	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
-	consumerQueueNames := []string{"user_inactive"}
-	amqpproducerconn, err:= service.NewAmqpConnection(amqpConnString, producerQueueNames)
+	amqpproducerconn, amqpconsumerconn := InitQueues(zapLogger)
 
-	if err != nil {
-		zapLogger.Error(err.Error())
-	}
-	amqpconsumerconn ,err:= service.NewAmqpConnection(amqpConnString, consumerQueueNames)
-
-	if err != nil {
-		zapLogger.Error(err.Error())
-	}
-	// Build the layers of the service "onion" from the inside out. First, the
-	// business logic service; then, the set of endpoints that wrap the service;
-	// and finally, a series of concrete transport adapters. The adapters, like
-	// the HTTP handler or the gRPC server, are the bridge between Go kit and
-	// the interfaces that the transports expect. Note that we're not binding
-	// them to ports or anything yet; we'll do that next.
-	var (
-		userservice        = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, CreateUserRequest, successfulCreateUserReq,
-										 failedCreateUserReq, getUserRequests, successfulGetUserReq,
-										 failedGetUserReq, successfulLogInReq,failedLogInReq)
-		endpoints      = endpoint.New(userservice, zapLogger, duration, tracer, zipkinTracer)
-		httpHandler    = transport.NewHTTPHandler(userservice,endpoints,duration, tracer, zipkinTracer, zapLogger)
-	)
+	httpHandler := InitService(zapLogger, db, amqpproducerconn, amqpconsumerconn, counters, tracer, zipkinTracer)
 
 	// Now we're to the part of the func main where we want to start actually
 	// running things, like servers bound to listeners to receive connections.
@@ -279,7 +186,158 @@ func main() {
 	zapLogger.Info("exit", zap.Any("exiting process", g.Run()))
 }
 
-func initZap(logLevel string) (*zap.Logger, error) {
+func InitService(zapLogger *zap.Logger, db *gorm.DB, amqpproducerconn service.Queue,
+	amqpconsumerconn service.Queue, counter service.Counters,
+	tracer stdopentracing.Tracer, zipkinTracer *zipkin.Tracer) http.Handler {
+
+	// Build the layers of the service "onion" from the inside out. First, the
+	// business logic service; then, the set of endpoints that wrap the service;
+	// and finally, a series of concrete transport adapters. The adapters, like
+	// the HTTP handler or the gRPC server, are the bridge between Go kit and
+	// the interfaces that the transports expect. Note that we're not binding
+	// them to ports or anything yet; we'll do that next.
+	var (
+		svc = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, counter)
+		endpoints   = endpoint.New(svc, zapLogger, counter.Duration, tracer, zipkinTracer)
+		httpHandler = transport.NewHTTPHandler(svc, endpoints, counter.Duration, tracer, zipkinTracer, zapLogger)
+	)
+	return httpHandler
+}
+
+func InitQueues(zapLogger *zap.Logger) (service.Queue, service.Queue) {
+	// connect to rabbitmq
+	amqpConnString := "amqp://user:bitnami@stats/"
+	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
+	consumerQueueNames := []string{"user_inactive"}
+	amqpproducerconn, err := service.NewAmqpConnection(amqpConnString, producerQueueNames)
+	if err != nil {
+		zapLogger.Error(err.Error())
+	}
+	amqpconsumerconn, err := service.NewAmqpConnection(amqpConnString, consumerQueueNames)
+	if err != nil {
+		zapLogger.Error(err.Error())
+	}
+	return amqpproducerconn, amqpconsumerconn
+}
+
+func InitMetrics() service.Counters {
+	// Create the (sparse) metrics we'll use in the service. They, too, are
+	// dependencies that we pass to components that use them.
+	var createUserReq, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq,
+	failedGetUserReq, successfulLogInReq, failedLogInReq metrics.Counter
+	{
+		// Business-level metrics.
+		createUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "create_user_requests",
+			Help:      "Total count of create user requests via the CreateUser method.",
+		}, []string{})
+		successfulCreateUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "create_user_success_ops",
+			Help:      "Total count of successful create user requests via the CreateUser method.",
+		}, []string{})
+		failedCreateUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "create_user_failed_ops",
+			Help:      "Total count of failed create user requests via the CreateUser method.",
+		}, []string{})
+		getUserRequests = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "get_user_requests",
+			Help:      "Total count of get user requests.",
+		}, []string{})
+		successfulGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "get_user_requests_success_ops",
+			Help:      "Total count of successful get user requests.",
+		}, []string{})
+		failedGetUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "get_user_requests_failed_ops",
+			Help:      "Total count of failed get user requests.",
+		}, []string{})
+		successfulLogInReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "login_requests_sucess_ops",
+			Help:      "Total count of successful logIn requests.",
+		}, []string{})
+		failedLogInReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "login_requests_failed_ops",
+			Help:      "Total count of failed login requests.",
+		}, []string{})
+	}
+	var duration metrics.Histogram
+	{
+		// Endpoint-level metrics.
+		duration = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+			Namespace: "users",
+			Subsystem: "users",
+			Name:      "request_duration_seconds",
+			Help:      "Request duration in seconds.",
+		}, []string{"method", "success"})
+	}
+
+	counter := service.Counters{
+		CreateUserRequest:createUserReq,
+		SuccessfulCreateUserRequest:successfulCreateUserReq,
+		FailedCreateUserRequest:failedCreateUserReq,
+		GetUserRequest:getUserRequests,
+		SuccessfulGetUserRequest:successfulGetUserReq,
+		FailedGetUserRequest:failedGetUserReq,
+		SuccessfulLogInRequest:successfulLogInReq,
+		FailedLogInRequest:failedLogInReq,
+		Duration: duration,
+	}
+
+	return counter
+}
+
+func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
+	var err error
+	// Load config file
+	err = config.LoadConfig()
+	if err != nil {
+		zapLogger.Info("Error Parsing Config File")
+		zapLogger.Error(err.Error())
+	}
+	connString := config.Config.GetDatabaseConnectionString()
+	db, err := gorm.Open("postgres", connString)
+	if err != nil {
+		zapLogger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	zapLogger.Info("successfully connected to database", )
+
+	if db.HasTable(&models.User{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "User"))
+		db.CreateTable(&models.User{})
+	}
+
+	if db.HasTable(&models.Team{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "Team"))
+		db.CreateTable(&models.Team{})
+	}
+
+	if db.HasTable(&models.Group{}) == false{
+		zapLogger.Info("Table :", zap.String("Table Created", "Group"))
+		db.CreateTable(&models.Group{})
+	}
+
+	return db, err
+}
+
+func InitZap(logLevel string) (*zap.Logger, error) {
 	level := zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	switch logLevel {
 	case "debug":
