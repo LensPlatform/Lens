@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"math/rand"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +13,7 @@ import (
 // User represents a single user profile
 // ID should always be globally unique
 type User struct {
-	ID        uint `gorm:"primary_key"`
+	ID        uint32 `gorm:"primary_key"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Type string `json:"user_type" validate:"required"`
@@ -29,16 +30,16 @@ type User struct {
 	PhoneNumber string `json:"phone_number,omitempty" validate:"required"`
 	Addresses postgres.Jsonb `json:"location,omitempty" validate:"-"`
 	Bio string `json:"bio,omitempty" validate:"required"`
-	Education postgres.Jsonb `json:"education,omitempty" validate:"-"`
-	UserInterests postgres.Jsonb `json:"interests,omitempty" validate:"-"`
+	Education Education `json:"education,omitempty" validate:"-"`
+	UserInterests Interests `json:"interests,omitempty" validate:"-"`
 	Headline string `json:"headline,omitempty" validate:"max=30"`
-	Subscriptions postgres.Jsonb `json:"subscriptions,omitempty" validate:"-"`
+	Subscriptions Subscriptions `json:"subscriptions,omitempty" validate:"-"`
 	Intent string `json:"intent,omitempty" validate:"required"`
-	Skills postgres.Jsonb `json:"skillset,omitempty" validate:"-"`
-	Teams postgres.Jsonb `json:"associated_teams,omitempty" validate:"-"`
-	Groups postgres.Jsonb `json: "associated_groups,omitempty" validate:"-"`
-	SocialMedia postgres.Jsonb `json:"social_media,omitempty" validate:"-"`
-	Settings postgres.Jsonb `json:"settings,omitempty" validate:"-"`
+	Skills Skillset `json:"skillset,omitempty" validate:"-"`
+	Teams []string `json:"associated_teams,omitempty" validate:"-"`
+	Groups []string `json: "associated_groups,omitempty" validate:"-"`
+	SocialMedia SocialMedia `json:"social_media,omitempty" validate:"-"`
+	Settings Settings `json:"settings,omitempty" validate:"-"`
 }
 
 type Address struct {
@@ -124,7 +125,7 @@ func (user User) ConvertToTableRow() (UserTable, error) {
 	if err != nil {
 		return UserTable{}, err
 	}
-	userTable.Addresses =  postgres.Jsonb{ json.RawMessage(skills)}
+	userTable.Skills =  postgres.Jsonb{ json.RawMessage(skills)}
 
 	address, err := json.Marshal(user.Addresses)
 	if err != nil {
@@ -175,7 +176,7 @@ func (user User) ConvertToTableRow() (UserTable, error) {
 	userTable.Teams =  postgres.Jsonb{ json.RawMessage(teams)}
 
 	userTable.Type = user.Type
-	userTable.ID = user.ID
+	userTable.ID = rand.Uint32()
 	userTable.FirstName = user.Firstname
 	userTable.LastName = user.Lastname
 	userTable.UserName = user.Username

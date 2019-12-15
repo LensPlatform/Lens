@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -11,7 +12,7 @@ import (
 )
 
 type UserTable struct{
-	ID        uint `gorm:"primary_key"`
+	ID        uint32 `gorm:"primary_key"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Type string `json:"user_type" validate:"required"`
@@ -52,11 +53,73 @@ func (table UserTable) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logge
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName) )
 	} else {
-		err := db.CreateTable(&table).Error
+		err := db.Table("users_table").CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())
 		}
 		logger.Info(fmt.Sprintf("Sucessfully Created %s Table", tableName))
 	}
+}
+
+func (table UserTable) ConvertFromRowToUser() (User, error){
+	var user User
+	err := json.Unmarshal(table.Education.RawMessage, &user.Education)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.UserInterests.RawMessage, &user.UserInterests)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.SocialMedia.RawMessage, &user.SocialMedia)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.Subscriptions.RawMessage, &user.Subscriptions)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.Groups.RawMessage, &user.Groups)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.Teams.RawMessage, &user.Teams)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.Skills.RawMessage, &user.Skills)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.Addresses.RawMessage, &user.Addresses)
+	if err != nil {
+		return User{}, err
+	}
+	err =  json.Unmarshal(table.Settings.RawMessage, &user.Settings)
+	if err != nil {
+		return User{}, err
+	}
+
+	user.Type = table.Type
+	user.ID = table.ID
+	user.Firstname = table.FirstName
+	user.Lastname = table.LastName
+	user.Username = table.UserName
+	user.Gender = table.Gender
+	user.Languages = table.Languages
+	user.Email = table.Email
+	user.PassWord = table.PassWord
+	user.PassWordConfirmed = table.PassWordConfirmed
+	user.Age = table.Age
+	user.BirthDate = table.BirthDate
+	user.PhoneNumber = table.PhoneNumber
+	user.Bio = table.Bio
+	user.Headline = table.Headline
+	user.Intent = table.Intent
+	user.CreatedAt = table.CreatedAt
+	user.UpdatedAt = table.UpdatedAt
+
+	fmt.Println(user)
+	return user, nil
 }

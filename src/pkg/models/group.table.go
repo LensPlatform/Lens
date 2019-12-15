@@ -10,7 +10,7 @@ import (
 )
 
 type GroupTable struct {
-	ID uint `json:"id" validate:"-" gorm:"primary_key"`
+	ID uint32 `json:"id" validate:"-" gorm:"primary_key"`
 	Name string `json:"group_name" validate:"required" gorm:"varchar(100)"`
 	Owner int `json:"group_owner" validate:"required"`
 	Bio string `json:"group_bio" validate:"required" gorm:"varchar(300)"`
@@ -31,7 +31,7 @@ func (table GroupTable) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logg
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName) )
 	} else {
-		err := db.CreateTable(&table).Error
+		err := db.Table("groups_table").CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())

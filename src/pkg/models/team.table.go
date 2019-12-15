@@ -43,7 +43,7 @@ func (table TeamTable) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logge
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName) )
 	} else {
-		err := db.CreateTable(&table).Error
+		err := db.Table("teams_table").CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())

@@ -7,8 +7,8 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/LensPlatform/Lens/src/pkg/helper"
-	model "github.com/LensPlatform/Lens/src/pkg/models"
 	_ "github.com/LensPlatform/Lens/src/pkg/helper"
+	model "github.com/LensPlatform/Lens/src/pkg/models"
 )
 
 type DBHandler interface {
@@ -82,9 +82,9 @@ func NewDatabase(db *gorm.DB) *Database {
 }
 
 func (db Database) CreateUser(user model.User) error {
-	if user.ID == 0 {
+	if user.Username == "" {
 		errMsg := fmt.Sprintf("Invalid Argument provided. " +
-			"the following param is null User Id : %d", user.ID)
+			"the following param is null User Id : %s", user.Username)
 		return errors.New(errMsg)
 	}
 
@@ -93,7 +93,7 @@ func (db Database) CreateUser(user model.User) error {
 		return e
 	}
 
-	e = db.connection.Table("user_table").Create(&table).Error
+	e = db.connection.Table("users_table").Create(&table).Error
 
 	if e != nil {
 		return e
@@ -144,18 +144,15 @@ func (db Database) 	CreateGroup(owner model.User, group model.Group) error {
 }
 
 func (db Database) GetUserById(id string) (model.User, error) {
-	query := "id = ?"
-	return db.GetUserBasedOnParam(id, query)
+	return db.GetUserBasedOnParam(id, GetUserByIdQuery)
 }
 
 func (db Database) GetUserByUsername(username string) (model.User, error)  {
-	query := "username = ?"
-	return db.GetUserBasedOnParam(username,query)
+	return db.GetUserBasedOnParam(username,GetUserByUsernameQuery)
 }
 
 func (db Database) GetUserByEmail(email string) (model.User, error)  {
-	query := "email = ?"
-	return db.GetUserBasedOnParam(email,query)
+	return db.GetUserBasedOnParam(email,GetUserByEmailQuery)
 }
 
 func (db Database) GetAllUsers() ([]model.User, error) {
@@ -183,12 +180,22 @@ func (db Database) GetUserBasedOnParam(param string, query string) (model.User, 
 			return model.User{}, errors.New(errMsg)
 		}
 
-		var user model.User
-		e := db.connection.Table("user_table").First(&user, query, param).Error
-
+		var table model.UserTable
+		rows, e := db.connection.Table("users_table").Raw(query, param).Rows()
 		if e != nil{
 			return model.User{}, e
 		}
+
+		defer rows.Close()
+		for rows.Next() {
+			_ = db.connection.ScanRows(rows, &table)
+		}
+
+		user, e := table.ConvertFromRowToUser()
+		if e != nil{
+			return model.User{}, e
+		}
+
 		return user, e
 }
 

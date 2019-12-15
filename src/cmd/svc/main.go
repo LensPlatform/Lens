@@ -322,6 +322,7 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 
 	zapLogger.Info("successfully connected to database", )
 	db.SingularTable(true)
+	db.LogMode(false)
 	CreateTablesOrMigrateSchemas(db, zapLogger)
 
 	return db, err
