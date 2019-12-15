@@ -37,12 +37,9 @@ import (
 
 
 func main() {
-	var err error
 	// Load config file
-	err = config.LoadConfig()
-	if err != nil {
-		return
-	}
+	config.LoadConfig()
+
 	// Define our flags. Your service probably won't need to bind listeners for
 	// *all* supported transports, or support both Zipkin and LightStep, and so
 	// on, but we do it here for demonstration purposes.
@@ -73,6 +70,7 @@ func main() {
 				serviceName = config.Config.ServiceName
 				reporter    = zipkinhttp.NewReporter(*zipkinURL)
 			)
+			fmt.Println(serviceName)
 			defer reporter.Close()
 			zEP, err := zipkin.NewEndpoint(serviceName, hostPort)
 			if err != nil {

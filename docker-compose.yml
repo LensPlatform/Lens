@@ -17,11 +17,11 @@ services:
   users-microservice-v1:
     build:
       context: src
-      dockerfile: Dockerfile
+      dockerfile: ./Dockerfile
     container_name: users_microservice
     ports:
       - 8805:8085
-      - 8804:8804
+      - 8804:8084
       - 8081:8081
     restart: always
     networks:

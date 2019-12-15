@@ -5,26 +5,21 @@
  */
 package config
 
-import (
-	"encoding/json"
-	"os"
-)
-
 // Configuration stores setting values
 type Configuration struct {
-	Debug      string `json:"debug.addr"`
-	Http       string `json:"http.addr"`
-	Zipkin      string `json:"zipkin.addr"`
-	ZipkinUrl     string `json:"zipkin.url"`
-	UseZipkin   bool `json:"zipkin.use"`
-	Appdash       string `json:"appdash.addr"`
-	DbType      string `json:"dbType"`
-	DbAddress   string `json:"dbAddress"`
-	DbName      string `json:"dbName"`
-	DbSettings  string `json:"dbSettings"`
-	Development bool   `json:"development"`
-	JwtSecretPassword string `json:"jwtSecretPassword"`
-	Issuer            string `json:"issuer"`
+	Debug           string `json:"debug.addr"`
+	Http            string `json:"http.addr"`
+	Appdash         string `json:"appdash.addr"`
+	ZipkinUrl       string `json:"zipkin.url"`
+	UseZipkin       bool `json:"zipkin.use"`
+	Zipkin          string `json:"zipkin.addr"`
+	DbType          string `json:"dbType"`
+	DbAddress       string `json:"dbAddress"`
+	DbName          string `json:"dbName"`
+	DbSettings      string `json:"dbSettings"`
+	Development     bool   `json:"development"`
+	Jwt             string `json:"jwtSecretPassword"`
+	Issuer          string `json:"issuer"`
 	ServiceName     string `json:"serviceName"`
 }
 
@@ -47,20 +42,23 @@ const (
 )
 
 // LoadConfig loads configuration from the config file
-func LoadConfig() error {
+func LoadConfig() {
 	// Filename is the path to the json config file
-	file, err := os.Open("config/config.json")
-	if err != nil {
-		return err
-	}
-
 	Config = new(Configuration)
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&Config)
-	if err != nil {
-		return err
-	}
-	return nil
+	Config.ServiceName = "users_microservice"
+	Config.Issuer = "lensplatform"
+	Config.Jwt = "lensplatformjwtpassword"
+	Config.Development = false
+	Config.DbSettings = "?sslmode=require"
+	Config.DbName = "users-microservice-db"
+	Config.DbAddress = "doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/"
+	Config.DbType = "postgresql://"
+	Config.Zipkin = ":8080"
+	Config.UseZipkin = true
+	Config.ZipkinUrl = "http://localhost:9411/api/v2/spans"
+	Config.Appdash = ":8086"
+	Config.Http = ":8085"
+	Config.Debug = ":8084"
 }
 
 func (Config *Configuration) GetDatabaseConnectionString() string{
