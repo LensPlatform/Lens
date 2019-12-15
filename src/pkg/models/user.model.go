@@ -1,10 +1,12 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jinzhu/gorm"
+	"github.com/jinzhu/gorm/dialects/postgres"
 )
 
 // User represents a single user profile
@@ -13,11 +15,10 @@ type User struct {
 	ID        uint `gorm:"primary_key"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	CurrentID int `json:"user_id" validate:"-"`
 	Type string `json:"user_type" validate:"required"`
-	FirstName string `json:"first_name" validate:"required"`
-	LastName string `json:"last_name" validate:"required"`
-	UserName string `json:"user_name" validate:"required" gorm:"type:varchar(100);unique_index"`
+	Firstname string `json:"first_name" validate:"required"`
+	Lastname string `json:"last_name" validate:"required"`
+	Username string `json:"user_name" validate:"required" gorm:"type:varchar(100);unique_index"`
 	Gender string `json:"gender" validate:"-"`
 	Languages string `json:"Languages" validate:"-"`
 	Email string `json:"email" validate:"required,email"`
@@ -26,18 +27,18 @@ type User struct {
 	Age int `json:"age" validate:"gte=0,lte=120"`
 	BirthDate string `json:"birth_date" validate:"required"`
 	PhoneNumber string `json:"phone_number,omitempty" validate:"required"`
-	Addresses Address `json:"location,omitempty" validate:"-"`
+	Addresses postgres.Jsonb `json:"location,omitempty" validate:"-"`
 	Bio string `json:"bio,omitempty" validate:"required"`
-	Education Education `json:"education,omitempty" validate:"-"`
-	UserInterests Interests `json:"interests,omitempty" validate:"-"`
+	Education postgres.Jsonb `json:"education,omitempty" validate:"-"`
+	UserInterests postgres.Jsonb `json:"interests,omitempty" validate:"-"`
 	Headline string `json:"headline,omitempty" validate:"max=30"`
-	Subscriptions Subscriptions `json:"subscriptions,omitempty" validate:"-"`
+	Subscriptions postgres.Jsonb `json:"subscriptions,omitempty" validate:"-"`
 	Intent string `json:"intent,omitempty" validate:"required"`
-	Skills Skillset `json:"skillset,omitempty" validate:"-"`
-	Teams []string `json:"associated_teams,omitempty" validate:"-"`
-	Groups []string `json: "associated_groups,omitempty" validate:"-"`
-	SocialMedia SocialMedia `json:"social_media,omitempty" validate:"-"`
-	Settings Settings `json:"settings,omitempty" validate:"-"`
+	Skills postgres.Jsonb `json:"skillset,omitempty" validate:"-"`
+	Teams postgres.Jsonb `json:"associated_teams,omitempty" validate:"-"`
+	Groups postgres.Jsonb `json: "associated_groups,omitempty" validate:"-"`
+	SocialMedia postgres.Jsonb `json:"social_media,omitempty" validate:"-"`
+	Settings postgres.Jsonb `json:"settings,omitempty" validate:"-"`
 }
 
 type Address struct {
@@ -114,5 +115,84 @@ func (user User) BeforeUpdate(scope *gorm.Scope) error {
 		return err
 	}
 	return nil
+}
+
+func (user User) ConvertToTableRow() (UserTable, error) {
+	var userTable UserTable
+
+	skills, err := json.Marshal(user.Skills)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Addresses =  postgres.Jsonb{ json.RawMessage(skills)}
+
+	address, err := json.Marshal(user.Addresses)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Addresses =  postgres.Jsonb{ json.RawMessage(address)}
+
+	education, err := json.Marshal(user.Education)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Education =  postgres.Jsonb{ json.RawMessage(education)}
+
+	interest, err := json.Marshal(user.UserInterests)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.UserInterests =  postgres.Jsonb{ json.RawMessage(interest)}
+
+	settings, err := json.Marshal(user.Settings)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Settings =  postgres.Jsonb{ json.RawMessage(settings)}
+
+	social, err := json.Marshal(user.SocialMedia)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.SocialMedia =  postgres.Jsonb{ json.RawMessage(social)}
+
+	subscriptions, err := json.Marshal(user.Subscriptions)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Subscriptions =  postgres.Jsonb{ json.RawMessage(subscriptions)}
+
+	groups, err := json.Marshal(user.Groups)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Groups =  postgres.Jsonb{ json.RawMessage(groups)}
+
+	teams, err := json.Marshal(user.Teams)
+	if err != nil {
+		return UserTable{}, err
+	}
+	userTable.Teams =  postgres.Jsonb{ json.RawMessage(teams)}
+
+	userTable.Type = user.Type
+	userTable.ID = user.ID
+	userTable.FirstName = user.Firstname
+	userTable.LastName = user.Lastname
+	userTable.UserName = user.Username
+	userTable.Gender = user.Gender
+	userTable.Languages = user.Languages
+	userTable.Email = user.Email
+	userTable.PassWord = user.PassWord
+	userTable.PassWordConfirmed = user.PassWordConfirmed
+	userTable.Age = user.Age
+	userTable.BirthDate = user.BirthDate
+	userTable.PhoneNumber = user.PhoneNumber
+	userTable.Bio = user.Bio
+	userTable.Headline = user.Headline
+	userTable.Intent = user.Intent
+	userTable.CreatedAt = user.CreatedAt
+	userTable.UpdatedAt = user.UpdatedAt
+
+	return userTable, nil
 }
 

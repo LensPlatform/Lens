@@ -30,7 +30,7 @@ import (
 
 	"github.com/LensPlatform/Lens/src/pkg/config"
 	"github.com/LensPlatform/Lens/src/pkg/endpoint"
-	"github.com/LensPlatform/Lens/src/pkg/models/tables"
+	"github.com/LensPlatform/Lens/src/pkg/models"
 	"github.com/LensPlatform/Lens/src/pkg/service"
 	"github.com/LensPlatform/Lens/src/pkg/transport"
 )
@@ -328,10 +328,9 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 }
 
 func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
-	var userTable tables.UserTable
-	var teamsTable tables.TeamTable
-	var groupTable tables.GroupTable
-
+	var userTable models.UserTable
+	var teamsTable models.TeamTable
+	var groupTable models.GroupTable
 	userTable.MigrateSchemaOrCreateTable(db, zapLogger)
 	teamsTable.MigrateSchemaOrCreateTable(db, zapLogger)
 	groupTable.MigrateSchemaOrCreateTable(db, zapLogger)

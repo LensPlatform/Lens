@@ -132,7 +132,7 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 
 	// check if user exists already in data store based on
 	// id, user name, and email address
-	userExists, err := s.database.DoesUserExist(currentuser.UserName, "username = ?")
+	userExists, err := s.database.DoesUserExist(currentuser.Username, "username = ?")
 
 	s.logger.Info("does user exist", zap.Bool("user exists", userExists))
 
@@ -140,7 +140,7 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 		return helper.ErrUserAlreadyExists
 	}
 
-	if err != nil{
+	if err != nil && err != gorm.ErrRecordNotFound{
 		s.logger.Error(err.Error())
 		return  err
 	}

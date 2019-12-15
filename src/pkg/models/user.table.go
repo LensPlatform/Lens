@@ -1,4 +1,4 @@
-package tables
+package models
 
 import (
 	"fmt"
@@ -15,9 +15,9 @@ type UserTable struct{
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Type string `json:"user_type" validate:"required"`
-	FirstName string `json:"first_name" validate:"required"`
-	LastName string `json:"last_name" validate:"required"`
-	UserName string `json:"user_name" validate:"required" gorm:"type:varchar(100);unique_index"`
+	FirstName string `json:"first_name" validate:"required" gorm:"type:varchar(100);column:firstname"`
+	LastName string `json:"last_name" validate:"required" gorm:"type:varchar(100);column:lastname"`
+	UserName string `json:"user_name" validate:"required" gorm:"type:varchar(100);unique_index;column:username"`
 	Gender string `json:"gender" validate:"-"`
 	Languages string `json:"Languages" validate:"-"`
 	Email string `json:"email" validate:"required,email"`

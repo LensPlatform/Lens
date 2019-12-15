@@ -29,7 +29,7 @@ type Team struct{
 
 type TeamMember struct {
 	JsonEmbeddable
-	Id int `json:"ID" validate:"required" sql:"id"`
+	Id uint `json:"ID" validate:"required" sql:"id"`
 	Name string `json:"name" validate:"required" sql:"name"`
 	Title string `json:"status" validate:"required" sql:"title"` // co-founder
 }

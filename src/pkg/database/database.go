@@ -82,13 +82,18 @@ func NewDatabase(db *gorm.DB) *Database {
 }
 
 func (db Database) CreateUser(user model.User) error {
-	if user.CurrentID == 0 {
+	if user.ID == 0 {
 		errMsg := fmt.Sprintf("Invalid Argument provided. " +
-			"the following param is null User Id : %d", user.CurrentID)
+			"the following param is null User Id : %d", user.ID)
 		return errors.New(errMsg)
 	}
 
-	e := db.connection.Create(&user).Error
+	table, e := user.ConvertToTableRow()
+	if e != nil {
+		return e
+	}
+
+	e = db.connection.Table("user_table").Create(&table).Error
 
 	if e != nil {
 		return e
@@ -97,17 +102,17 @@ func (db Database) CreateUser(user model.User) error {
 }
 
 func (db Database) CreateTeam(founder model.User, team model.Team) error {
-	if founder.CurrentID == 0  || team.ID == 0 {
+	if founder.ID == 0  || team.ID == 0 {
 		errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
-			"the following params are null Founder Id : %d, Team ID : %d", founder.CurrentID, team.ID)
+			"the following params are null Founder Id : %d, Team ID : %d", founder.ID, team.ID)
 		return errors.New(errMsg)
 	}
 
 	var teamMember model.TeamMember
 	var founders []model.TeamMember
 
-	founderName := fmt.Sprintf("%s %s", founder.FirstName, founder.LastName)
-	teamMember = model.TeamMember{Id : founder.CurrentID, Name : founderName, Title: "founder"}
+	founderName := fmt.Sprintf("%s %s", founder.Firstname, founder.Lastname)
+	teamMember = model.TeamMember{Id : founder.ID, Name : founderName, Title: "founder"}
 
 	founders = append(team.Founders, teamMember)
 	team.Founders = founders
@@ -122,17 +127,16 @@ func (db Database) CreateTeam(founder model.User, team model.Team) error {
 }
 
 func (db Database) 	CreateGroup(owner model.User, group model.Group) error {
-	if owner.CurrentID == 0 || group.ID == "" {
+	if owner.ID == 0 || group.ID == "" {
 		errMsg := fmt.Sprintf("Invalid Argument provided. " +
-			"one of the following arguments are null User Id : %d, Group Id : %s", owner.CurrentID,  group.ID )
+			"one of the following arguments are null User Id : %d, Group Id : %s", owner.ID,  group.ID )
 		return errors.New(errMsg)
 	}
 
-	group.Owner = owner.CurrentID
+	group.Owner = owner.ID
 	group.NumGroupMembers = 1
 
 	e := db.connection.Create(&group).Error
-
 	if e != nil {
 		return e
 	}
@@ -178,8 +182,9 @@ func (db Database) GetUserBasedOnParam(param string, query string) (model.User, 
 				"the following params are null Search Param : %s, Query : %s", param, query)
 			return model.User{}, errors.New(errMsg)
 		}
+
 		var user model.User
-		e := db.connection.First(&user, query, param).Error
+		e := db.connection.Table("user_table").First(&user, query, param).Error
 
 		if e != nil{
 			return model.User{}, e
@@ -302,7 +307,7 @@ func (db Database) DoesUserExist(searchParam string, query string) (bool, error)
 		return false, err
 	}
 
-	if user.CurrentID != 0{
+	if user.ID != 0{
 		return true, nil
 	}
 
@@ -663,7 +668,7 @@ func (db Database) 	DeleteUserBasedOnParam(param string, query string) (bool, er
 		return false, err
 	}
 
-	if user.CurrentID == 0 {
+	if user.ID == 0 {
 		return false, nil
 	}
 
