@@ -21,8 +21,8 @@ type DBHandler interface {
 	GetUserById(id string) (model.Team, error)
 	GetUserByEmail(email string) (model.Team, error)
 	GetUserByUsername(username string) (model.Team, error)
-	GetPassword(id string)( string,  error)
-	GetAllUsers()([]model.User, error)
+	GetPassword(id string) (string, error)
+	GetAllUsers() ([]model.User, error)
 	GetAllUsersFromSearchQuery(search map[string]interface{}) ([]model.User, error)
 	GetUserBasedOnParam(param string, query string) (model.User, error)
 
@@ -34,9 +34,9 @@ type DBHandler interface {
 	GetAllTeamsFromSearchQuery(search map[string]interface{}) ([]model.Team, error)
 	GetTeamBasedOnParam(param string, query string) (model.Team, error)
 
-	GetGroupBasedOnParam(param string, query string)(model.Group, error)
-	GetGroupById(id string)(model.Group, error)
-	GetGroupByName(name string)(model.Group, error)
+	GetGroupBasedOnParam(param string, query string) (model.Group, error)
+	GetGroupById(id string) (model.Group, error)
+	GetGroupByName(name string) (model.Group, error)
 
 	// Update
 	UpdateUser(param map[string]interface{}, id string) (model.Team, error)
@@ -48,7 +48,7 @@ type DBHandler interface {
 	AddTeamMemberToTeam(teamMember model.TeamMember, teamId string) (model.Team, error)
 	RemoveTeamMemberFromTeam(teamMember model.TeamMember, teamId string) (model.Team, error)
 	AddAdvisorToTeam(advisorMember model.TeamMember, teamId string) (model.Team, error)
-	RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId string)(model.Team, error)
+	RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId string) (model.Team, error)
 	AddFounderToTeam(advisorMember model.TeamMember, teamId string) (model.Team, error)
 	RemoveFounderFromTeam(advisorMember model.TeamMember, teamId string) (model.Team, error)
 
@@ -78,12 +78,12 @@ type Database struct {
 }
 
 func NewDatabase(db *gorm.DB) *Database {
-	return &Database{connection:db}
+	return &Database{connection: db}
 }
 
 func (db Database) CreateUser(user model.User) error {
 	if user.Username == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. " +
+		errMsg := fmt.Sprintf("Invalid Argument provided. "+
 			"the following param is null User Id : %s", user.Username)
 		return errors.New(errMsg)
 	}
@@ -102,8 +102,8 @@ func (db Database) CreateUser(user model.User) error {
 }
 
 func (db Database) CreateTeam(founder model.User, team model.Team) error {
-	if founder.ID == 0  || team.ID == 0 {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
+	if founder.ID == 0 || team.ID == 0 {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of "+
 			"the following params are null Founder Id : %d, Team ID : %d", founder.ID, team.ID)
 		return errors.New(errMsg)
 	}
@@ -112,7 +112,7 @@ func (db Database) CreateTeam(founder model.User, team model.Team) error {
 	var founders []model.TeamMember
 
 	founderName := fmt.Sprintf("%s %s", founder.Firstname, founder.Lastname)
-	teamMember = model.TeamMember{Id : founder.ID, Name : founderName, Title: "founder"}
+	teamMember = model.TeamMember{Id: founder.ID, Name: founderName, Title: "founder"}
 
 	founders = append(team.Founders, teamMember)
 	team.Founders = founders
@@ -126,10 +126,10 @@ func (db Database) CreateTeam(founder model.User, team model.Team) error {
 	return nil
 }
 
-func (db Database) 	CreateGroup(owner model.User, group model.Group) error {
-	if owner.ID == 0 || group.ID == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. " +
-			"one of the following arguments are null User Id : %d, Group Id : %s", owner.ID,  group.ID )
+func (db Database) CreateGroup(owner model.User, group model.Group) error {
+	if owner.ID == 0 || group.ID == 0 {
+		errMsg := fmt.Sprintf("Invalid Argument provided. "+
+			"one of the following arguments are null User Id : %d, Group Id : %d", owner.ID, group.ID)
 		return errors.New(errMsg)
 	}
 
@@ -147,12 +147,12 @@ func (db Database) GetUserById(id string) (model.User, error) {
 	return db.GetUserBasedOnParam(id, GetUserByIdQuery)
 }
 
-func (db Database) GetUserByUsername(username string) (model.User, error)  {
-	return db.GetUserBasedOnParam(username,GetUserByUsernameQuery)
+func (db Database) GetUserByUsername(username string) (model.User, error) {
+	return db.GetUserBasedOnParam(username, GetUserByUsernameQuery)
 }
 
-func (db Database) GetUserByEmail(email string) (model.User, error)  {
-	return db.GetUserBasedOnParam(email,GetUserByEmailQuery)
+func (db Database) GetUserByEmail(email string) (model.User, error) {
+	return db.GetUserBasedOnParam(email, GetUserByEmailQuery)
 }
 
 func (db Database) GetAllUsers() ([]model.User, error) {
@@ -174,34 +174,34 @@ func (db Database) GetAllUsersFromSearchQuery(query map[string]interface{}) ([]m
 }
 
 func (db Database) GetUserBasedOnParam(param string, query string) (model.User, error) {
-		if param == ""  || query == "" {
-			errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
-				"the following params are null Search Param : %s, Query : %s", param, query)
-			return model.User{}, errors.New(errMsg)
-		}
+	if param == "" || query == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of "+
+			"the following params are null Search Param : %s, Query : %s", param, query)
+		return model.User{}, errors.New(errMsg)
+	}
 
-		var table model.UserTable
-		rows, e := db.connection.Table("users_table").Raw(query, param).Rows()
-		if e != nil{
-			return model.User{}, e
-		}
+	var table model.UserTable
+	rows, e := db.connection.Table("users_table").Raw(query, param).Rows()
+	if e != nil {
+		return model.User{}, e
+	}
 
-		defer rows.Close()
-		for rows.Next() {
-			_ = db.connection.ScanRows(rows, &table)
-		}
+	defer rows.Close()
+	for rows.Next() {
+		_ = db.connection.ScanRows(rows, &table)
+	}
 
-		user, e := table.ConvertFromRowToUser()
-		if e != nil{
-			return model.User{}, e
-		}
+	user, e := table.ConvertFromRowToUser()
+	if e != nil {
+		return model.User{}, e
+	}
 
-		return user, e
+	return user, e
 }
 
 func (db Database) GetTeamByID(id string) (model.Team, error) {
 	if id == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. " +
+		errMsg := fmt.Sprintf("Invalid Argument provided. "+
 			"The following argument is null Id : %s", id)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -211,7 +211,7 @@ func (db Database) GetTeamByID(id string) (model.Team, error) {
 
 func (db Database) GetTeamByName(name string) (model.Team, error) {
 	if name == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. " +
+		errMsg := fmt.Sprintf("Invalid Argument provided. "+
 			"The following argument is null name : %s", name)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -221,7 +221,7 @@ func (db Database) GetTeamByName(name string) (model.Team, error) {
 
 func (db Database) GetTeamsByType(teamType string) (model.Team, error) {
 	if teamType == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. " +
+		errMsg := fmt.Sprintf("Invalid Argument provided. "+
 			"The following argument is null Team Type : %s", teamType)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -231,7 +231,7 @@ func (db Database) GetTeamsByType(teamType string) (model.Team, error) {
 
 func (db Database) GetTeamsByIndustry(industry string) ([]model.Team, error) {
 	if industry == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. " +
+		errMsg := fmt.Sprintf("Invalid Argument provided. "+
 			"The following argument is null Industry Type : %s", industry)
 		return nil, errors.New(errMsg)
 	}
@@ -245,29 +245,29 @@ func (db Database) GetTeamsByIndustry(industry string) ([]model.Team, error) {
 	return teams, nil
 }
 
-func (db Database) GetAllTeams()([]model.Team, error){
+func (db Database) GetAllTeams() ([]model.Team, error) {
 	var teams []model.Team
 	e := db.connection.Find(&teams).Error
 
 	if e != nil {
-		return  nil, e
+		return nil, e
 	}
 	return teams, nil
 }
 
-func (db Database) GetAllTeamsFromSearchQuery(search map[string]interface{}) ([]model.Team , error){
+func (db Database) GetAllTeamsFromSearchQuery(search map[string]interface{}) ([]model.Team, error) {
 	var teams []model.Team
 	e := db.connection.Where(search).Find(&teams).Error
 
 	if e != nil {
-		return  nil, e
+		return nil, e
 	}
 	return teams, nil
 }
 
-func (db Database) GetTeamBasedOnParam(param string, query string)(model.Team, error){
-	if param == ""  || query == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
+func (db Database) GetTeamBasedOnParam(param string, query string) (model.Team, error) {
+	if param == "" || query == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of "+
 			"the following params are null Search Param : %s, Query : %s", param, query)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -275,23 +275,23 @@ func (db Database) GetTeamBasedOnParam(param string, query string)(model.Team, e
 	var team model.Team
 	e := db.connection.First(&team, query, param).Error
 
-	if e != nil{
+	if e != nil {
 		return model.Team{}, e
 	}
 	return team, nil
 }
 
-func (db Database) GetGroupById(id string)(model.Group, error) {
-	return  db.GetGroupBasedOnParam(id, "id=?")
+func (db Database) GetGroupById(id string) (model.Group, error) {
+	return db.GetGroupBasedOnParam(id, "id=?")
 }
 
-func (db Database) GetGroupByName(name string)(model.Group, error){
-	return  db.GetGroupBasedOnParam(name, "name=?")
+func (db Database) GetGroupByName(name string) (model.Group, error) {
+	return db.GetGroupBasedOnParam(name, "name=?")
 }
 
-func (db Database) GetGroupBasedOnParam(param string, query string)(model.Group, error){
-	if param == ""  || query == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of " +
+func (db Database) GetGroupBasedOnParam(param string, query string) (model.Group, error) {
+	if param == "" || query == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of "+
 			"the following params are null Search Param : %s, Query : %s", param, query)
 		return model.Group{}, errors.New(errMsg)
 	}
@@ -299,7 +299,7 @@ func (db Database) GetGroupBasedOnParam(param string, query string)(model.Group,
 	var group model.Group
 	e := db.connection.First(&group, query, param).Error
 
-	if e != nil{
+	if e != nil {
 		return model.Group{}, e
 	}
 	return group, nil
@@ -308,13 +308,13 @@ func (db Database) GetGroupBasedOnParam(param string, query string)(model.Group,
 func (db Database) DoesUserExist(searchParam string, query string) (bool, error) {
 	// check if user exists
 	var user model.User
-	user, err := db.GetUserBasedOnParam(searchParam,query)
+	user, err := db.GetUserBasedOnParam(searchParam, query)
 
 	if err != nil {
 		return false, err
 	}
 
-	if user.ID != 0{
+	if user.ID != 0 {
 		return true, nil
 	}
 
@@ -323,7 +323,7 @@ func (db Database) DoesUserExist(searchParam string, query string) (bool, error)
 
 func (db Database) DoesTeamExist(searchParam string, query string) (bool, error) {
 	var team model.Team
-	team, err := db.GetTeamBasedOnParam(searchParam,query)
+	team, err := db.GetTeamBasedOnParam(searchParam, query)
 
 	if err != nil {
 		return false, err
@@ -396,7 +396,7 @@ func (db Database) UpdateTeamOverview(overView string, teamId string) (model.Tea
 	return team, nil
 }
 
-func (db Database) UpdateTeamIndustry(industry string, teamId string)  (model.Team, error) {
+func (db Database) UpdateTeamIndustry(industry string, teamId string) (model.Team, error) {
 	var team model.Team
 	team, err := db.GetTeamByID(teamId)
 
@@ -413,7 +413,7 @@ func (db Database) UpdateTeamIndustry(industry string, teamId string)  (model.Te
 
 func (db Database) AddTeamMemberToTeam(teamMember model.TeamMember, teamId string) (model.Team, error) {
 	if teamMember.Id == 0 || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member"+
 			" ID : %s", teamMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -439,8 +439,8 @@ func (db Database) AddTeamMemberToTeam(teamMember model.TeamMember, teamId strin
 }
 
 func (db Database) RemoveTeamMemberFromTeam(teamMember model.TeamMember, teamId string) (model.Team, error) {
-	if teamMember.Id == 0  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+	if teamMember.Id == 0 || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member"+
 			" ID : %s", teamMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -474,8 +474,8 @@ func (db Database) RemoveTeamMemberFromTeam(teamMember model.TeamMember, teamId 
 }
 
 func (db Database) AddAdvisorToTeam(advisorMember model.TeamMember, teamId string) (model.Team, error) {
-	if advisorMember.Id == 0  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+	if advisorMember.Id == 0 || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member"+
 			" ID : %s", advisorMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -501,8 +501,8 @@ func (db Database) AddAdvisorToTeam(advisorMember model.TeamMember, teamId strin
 }
 
 func (db Database) RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId string) (model.Team, error) {
-	if advisorMember.Id == 0  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+	if advisorMember.Id == 0 || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member"+
 			" ID : %s", advisorMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -535,9 +535,9 @@ func (db Database) RemoveAdvisorFromTeam(advisorMember model.TeamMember, teamId 
 	return team, nil
 }
 
-func (db Database) AddFounderToTeam(founderMember model.TeamMember, teamId string)  (model.Team, error) {
-	if founderMember.Id == 0  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+func (db Database) AddFounderToTeam(founderMember model.TeamMember, teamId string) (model.Team, error) {
+	if founderMember.Id == 0 || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member"+
 			" ID : %s", founderMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -563,8 +563,8 @@ func (db Database) AddFounderToTeam(founderMember model.TeamMember, teamId strin
 }
 
 func (db Database) RemoveFounderFromTeam(founderMember model.TeamMember, teamId string) (model.Team, error) {
-	if founderMember.Id == 0  || teamId == "" {
-		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member" +
+	if founderMember.Id == 0 || teamId == "" {
+		errMsg := fmt.Sprintf("Invalid Argument provided. One of the following params are null Team Id : %d, Team Member"+
 			" ID : %s", founderMember.Id, teamId)
 		return model.Team{}, errors.New(errMsg)
 	}
@@ -598,7 +598,7 @@ func (db Database) RemoveFounderFromTeam(founderMember model.TeamMember, teamId 
 	return team, nil
 }
 
-func (db Database) AddMemberToGroup(memberId string, groupId string) (model.Group, error){
+func (db Database) AddMemberToGroup(memberId string, groupId string) (model.Group, error) {
 	group, err := db.GetGroupById(groupId)
 	if err != nil {
 		return model.Group{}, err
@@ -652,24 +652,24 @@ func (db Database) RemoveMemberFromGroup(memberId string, groupId string) (model
 	return group, nil
 }
 
-func (db Database) DeleteUserById(id string) (bool, error){
+func (db Database) DeleteUserById(id string) (bool, error) {
 	query := "id = ?"
-	return db.DeleteUserBasedOnParam(id,query)
+	return db.DeleteUserBasedOnParam(id, query)
 }
 
-func (db Database) DeleteUserByUsername(id string) (bool, error){
+func (db Database) DeleteUserByUsername(id string) (bool, error) {
 	query := "username = ?"
-	return db.DeleteUserBasedOnParam(id,query)
+	return db.DeleteUserBasedOnParam(id, query)
 }
 
-func (db Database) DeleteUserByEmail(id string) (bool, error){
+func (db Database) DeleteUserByEmail(id string) (bool, error) {
 	query := "email = ?"
-	return db.DeleteUserBasedOnParam(id,query)
+	return db.DeleteUserBasedOnParam(id, query)
 }
 
-func (db Database) 	DeleteUserBasedOnParam(param string, query string) (bool, error) {
+func (db Database) DeleteUserBasedOnParam(param string, query string) (bool, error) {
 	var user model.User
-	user, err := db.GetUserBasedOnParam(param,query)
+	user, err := db.GetUserBasedOnParam(param, query)
 
 	if err != nil {
 		return false, err
@@ -689,28 +689,28 @@ func (db Database) 	DeleteUserBasedOnParam(param string, query string) (bool, er
 
 func (db Database) DeleteTeamById(teamId string) (bool, error) {
 	query := "id = ?"
-	return db.DeleteTeamBasedOnParam(teamId,query)
+	return db.DeleteTeamBasedOnParam(teamId, query)
 }
 
 func (db Database) DeleteTeamByName(teamName string) (bool, error) {
 	query := "name = ?"
-	return db.DeleteTeamBasedOnParam(teamName,query)
+	return db.DeleteTeamBasedOnParam(teamName, query)
 }
 
-func (db Database) DeleteTeamTeamByEmail(teamEmail string) (bool, error){
+func (db Database) DeleteTeamTeamByEmail(teamEmail string) (bool, error) {
 	query := "email = ?"
-	return db.DeleteTeamBasedOnParam(teamEmail,query)
+	return db.DeleteTeamBasedOnParam(teamEmail, query)
 }
 
-func (db Database) 	DeleteTeamBasedOnParam(param string, query string) (bool, error) {
+func (db Database) DeleteTeamBasedOnParam(param string, query string) (bool, error) {
 	var team model.Team
-	team, err := db.GetTeamBasedOnParam(param,query)
+	team, err := db.GetTeamBasedOnParam(param, query)
 
 	if err != nil {
 		return false, err
 	}
 
-	if team.ID == 0{
+	if team.ID == 0 {
 		return false, nil
 	}
 
@@ -721,13 +721,13 @@ func (db Database) 	DeleteTeamBasedOnParam(param string, query string) (bool, er
 	return true, nil
 }
 
-func (db Database) 	DeleteGroupById(groupId string) (bool, error) {
+func (db Database) DeleteGroupById(groupId string) (bool, error) {
 	group, err := db.GetGroupById(groupId)
 	if err != nil {
 		return false, err
 	}
 
-	if group.ID == ""{
+	if group.ID == 0 {
 		return false, nil
 	}
 

@@ -7,20 +7,20 @@ package config
 
 // Configuration stores setting values
 type Configuration struct {
-	Debug           string `json:"debug.addr"`
-	Http            string `json:"http.addr"`
-	Appdash         string `json:"appdash.addr"`
-	ZipkinUrl       string `json:"zipkin.url"`
-	UseZipkin       bool `json:"zipkin.use"`
-	Zipkin          string `json:"zipkin.addr"`
-	DbType          string `json:"dbType"`
-	DbAddress       string `json:"dbAddress"`
-	DbName          string `json:"dbName"`
-	DbSettings      string `json:"dbSettings"`
-	Development     bool   `json:"development"`
-	Jwt             string `json:"jwtSecretPassword"`
-	Issuer          string `json:"issuer"`
-	ServiceName     string `json:"serviceName"`
+	Debug       string `json:"debug.addr"`
+	Http        string `json:"http.addr"`
+	Appdash     string `json:"appdash.addr"`
+	ZipkinUrl   string `json:"zipkin.url"`
+	UseZipkin   bool   `json:"zipkin.use"`
+	Zipkin      string `json:"zipkin.addr"`
+	DbType      string `json:"dbType"`
+	DbAddress   string `json:"dbAddress"`
+	DbName      string `json:"dbName"`
+	DbSettings  string `json:"dbSettings"`
+	Development bool   `json:"development"`
+	Jwt         string `json:"jwtSecretPassword"`
+	Issuer      string `json:"issuer"`
+	ServiceName string `json:"serviceName"`
 }
 
 // Config shares the global configuration
@@ -61,6 +61,10 @@ func LoadConfig() {
 	Config.Debug = ":8084"
 }
 
-func (Config *Configuration) GetDatabaseConnectionString() string{
+// GetDatabaseConnectionString Creates a database connection string from the service configuration settings
+func (Config *Configuration) GetDatabaseConnectionString() string {
+	if Config == nil {
+		LoadConfig()
+	}
 	return Config.DbType + Config.DbAddress + Config.DbName + Config.DbSettings
 }

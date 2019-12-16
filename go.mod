@@ -23,6 +23,8 @@ require (
 	github.com/spf13/viper v1.6.1
 	github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 	github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a // indirect
+	github.com/swaggo/http-swagger v0.0.0-20190614090009-c2865af9083e
+	github.com/swaggo/swag v1.6.3
 	go.uber.org/zap v1.13.0
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0

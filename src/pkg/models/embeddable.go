@@ -6,7 +6,7 @@ import (
 	"errors"
 )
 
-type JsonEmbeddable struct {}
+type JsonEmbeddable struct{}
 
 // ser struct implements the driver.Valuer interface. This method
 // simply returns the JSON-encoded representation of the struct.

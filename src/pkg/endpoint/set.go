@@ -12,9 +12,9 @@ import (
 
 	"github.com/LensPlatform/Lens/src/pkg/service"
 
+	model "github.com/LensPlatform/Lens/src/pkg/models"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
-	model "github.com/LensPlatform/Lens/src/pkg/models"
 
 	"github.com/go-kit/kit/circuitbreaker"
 
@@ -24,7 +24,6 @@ import (
 	"github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/tracing/zipkin"
 )
-
 
 // Endpoints collects all of the endpoints that compose a profile service. It's
 // meant to be used as a helper struct, to collect all of the endpoints into a
@@ -41,11 +40,11 @@ import (
 // construct individual endpoints using transport/http.NewClient, combine them
 // into an Endpoints, and return it to the caller as a Service.
 type Set struct {
-	CreateUserEndpoint endpoint.Endpoint
-	GetUserByIdEndpoint endpoint.Endpoint
+	CreateUserEndpoint        endpoint.Endpoint
+	GetUserByIdEndpoint       endpoint.Endpoint
 	GetUserByUsernameEndpoint endpoint.Endpoint
-	GetUserByEmailEndpoint endpoint.Endpoint
-	LoginEndpoint endpoint.Endpoint
+	GetUserByEmailEndpoint    endpoint.Endpoint
+	LoginEndpoint             endpoint.Endpoint
 }
 
 // New returns a Set that wraps the provided server, and wires in all of the
@@ -55,27 +54,27 @@ func New(svc service.Service, logger *zap.Logger, duration metrics.Histogram, ot
 }
 
 // MakeServerEndpoints returns an Endpoints struct where each endpoint invokes
-// the corresponding method on the provided service. Useful in a profilesvc
-// server.
+// the corresponding method on the provided service.
 func MakeServerEndpoints(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer) Set {
 	return Set{
-		CreateUserEndpoint:   MakeCreateUserEndpoint(s, logger, duration, otTracer, zipkinTracer, "CreateUser"),
-		GetUserByIdEndpoint:  MakeGetUserByIdEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserById"),
+		CreateUserEndpoint:        MakeCreateUserEndpoint(s, logger, duration, otTracer, zipkinTracer, "CreateUser"),
+		GetUserByIdEndpoint:       MakeGetUserByIdEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserById"),
 		GetUserByUsernameEndpoint: MakeGetUserByUsernameEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByUsername"),
-		GetUserByEmailEndpoint: MakeGetUserByEmailEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByEmail"),
-		LoginEndpoint: MakeLoginEndpoint(s, logger, duration, otTracer, zipkinTracer, "Login"),
+		GetUserByEmailEndpoint:    MakeGetUserByEmailEndpoint(s, logger, duration, otTracer, zipkinTracer, "GetUserByEmail"),
+		LoginEndpoint:             MakeLoginEndpoint(s, logger, duration, otTracer, zipkinTracer, "Login"),
 	}
 }
 
 // ============================== Endpoint Definitions ======================
-// CreateUserEndpoint constructs a Sum endpoint wrapping the service.
+
+// MakeCreateUserEndpoint constructs a Create User endpoint wrapping the service.
 func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
 
-		createUserEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+	createUserEndpoint := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateUserRequest)
 		logger.Info("User", zap.Any("user requesting creation", request))
 		err = s.CreateUser(ctx, req.User)
@@ -85,9 +84,10 @@ func MakeCreateUserEndpoint(s service.Service, logger *zap.Logger,
 		return CreateUserResponse{Err: err}, nil
 	}
 	return WrapMiddlewares(createUserEndpoint, logger,
-			duration, otTracer, zipkinTracer, operationName)
+		duration, otTracer, zipkinTracer, operationName)
 }
 
+// MakeGetUserByIdEndpoint constructs a Get User By ID endpoint wrapping the service.
 func MakeGetUserByIdEndpoint(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
@@ -99,12 +99,13 @@ func MakeGetUserByIdEndpoint(s service.Service, logger *zap.Logger,
 		if err != nil {
 			logger.Error(err.Error())
 		}
-		return GetUserResponse{Err: err, User:user}, nil
+		return GetUserResponse{Err: err, User: user}, nil
 	}
 	return WrapMiddlewares(getUserByIdEndpoint, logger,
 		duration, otTracer, zipkinTracer, operationName)
 }
 
+// MakeGetUserByUsernameEndpoint constructs a Get User By Username endpoint wrapping the service.
 func MakeGetUserByUsernameEndpoint(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
@@ -116,12 +117,13 @@ func MakeGetUserByUsernameEndpoint(s service.Service, logger *zap.Logger,
 		if err != nil {
 			logger.Error(err.Error())
 		}
-		return GetUserResponse{Err: err, User:user}, nil
+		return GetUserResponse{Err: err, User: user}, nil
 	}
 	return WrapMiddlewares(getUserByUsernameEndpoint, logger,
 		duration, otTracer, zipkinTracer, operationName)
 }
 
+// MakeGetUserByEmailEndpoint constructs a Get User By Email endpoint wrapping the service.
 func MakeGetUserByEmailEndpoint(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
@@ -133,12 +135,13 @@ func MakeGetUserByEmailEndpoint(s service.Service, logger *zap.Logger,
 		if err != nil {
 			logger.Error(err.Error())
 		}
-		return GetUserResponse{Err: err, User:user}, nil
+		return GetUserResponse{Err: err, User: user}, nil
 	}
 	return WrapMiddlewares(getUserByEmailEndpoint, logger,
 		duration, otTracer, zipkinTracer, operationName)
 }
 
+// MakeLoginEndpoint constructs a Log In endpoint wrapping the service.
 func MakeLoginEndpoint(s service.Service, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
 	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
@@ -150,16 +153,17 @@ func MakeLoginEndpoint(s service.Service, logger *zap.Logger,
 		if err != nil {
 			logger.Error(err.Error())
 		}
-		return GetUserResponse{Err: err, User:user}, nil
+		return GetUserResponse{Err: err, User: user}, nil
 	}
 	return WrapMiddlewares(loginEndpoint, logger,
 		duration, otTracer, zipkinTracer, operationName)
 }
 
 // ============================== Endpoint Service Interface Impl  ======================
+
 // CreateUser implements the service interface so that set may be used as a service.
-func (s Set) CreateUser(ctx context.Context, user model.User)(err error){
-	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{User:user})
+func (s Set) CreateUser(ctx context.Context, user model.User) (err error) {
+	resp, err := s.CreateUserEndpoint(ctx, CreateUserRequest{User: user})
 	if err != nil {
 		return err
 	}
@@ -167,8 +171,9 @@ func (s Set) CreateUser(ctx context.Context, user model.User)(err error){
 	return response.Err
 }
 
-func (s Set) GetUserById(ctx context.Context, id string)(user model.User, err error){
-	resp, err := s.GetUserByIdEndpoint(ctx, GetUserRequest{Param:id})
+// GetUserById implements the service interface so that set may be used as a service.
+func (s Set) GetUserById(ctx context.Context, id string) (user model.User, err error) {
+	resp, err := s.GetUserByIdEndpoint(ctx, GetUserRequest{Param: id})
 	response := resp.(GetUserResponse)
 	if err != nil {
 		return response.User, err
@@ -176,8 +181,9 @@ func (s Set) GetUserById(ctx context.Context, id string)(user model.User, err er
 	return response.User, nil
 }
 
-func (s Set) GetUserByEmail(ctx context.Context, email string)(user model.User, err error){
-	resp, err := s.GetUserByEmailEndpoint(ctx, GetUserRequest{Param:email})
+// GetUserByEmail implements the service interface so that set may be used as a service.
+func (s Set) GetUserByEmail(ctx context.Context, email string) (user model.User, err error) {
+	resp, err := s.GetUserByEmailEndpoint(ctx, GetUserRequest{Param: email})
 	response := resp.(GetUserResponse)
 	if err != nil {
 		return response.User, err
@@ -185,8 +191,9 @@ func (s Set) GetUserByEmail(ctx context.Context, email string)(user model.User, 
 	return response.User, nil
 }
 
-func (s Set) GetUserByUsername(ctx context.Context, username string)(user model.User, err error){
-	resp, err := s.GetUserByUsernameEndpoint(ctx, GetUserRequest{Param:username})
+// GetUserByUsername implements the service interface so that set may be used as a service.
+func (s Set) GetUserByUsername(ctx context.Context, username string) (user model.User, err error) {
+	resp, err := s.GetUserByUsernameEndpoint(ctx, GetUserRequest{Param: username})
 	response := resp.(GetUserResponse)
 	if err != nil {
 		return response.User, err
@@ -194,8 +201,9 @@ func (s Set) GetUserByUsername(ctx context.Context, username string)(user model.
 	return response.User, nil
 }
 
-func (s Set) logIn(ctx context.Context, username, password string)(user model.User, err error){
-	resp, err := s.LoginEndpoint(ctx, LoginRequest{Username:username, Password:password})
+// logIn implements the service interface so that set may be used as a service.
+func (s Set) logIn(ctx context.Context, username, password string) (user model.User, err error) {
+	resp, err := s.LoginEndpoint(ctx, LoginRequest{Username: username, Password: password})
 	response := resp.(GetUserResponse)
 	if err != nil {
 		return response.User, err
@@ -203,11 +211,13 @@ func (s Set) logIn(ctx context.Context, username, password string)(user model.Us
 	return response.User, nil
 }
 
+// WrapMiddlewares wraps endpointes in the following set of middlewares : ratelimiting,
+// circuit breaker, open and zipkin tracing, logging, and instrumentation middlewares
 func WrapMiddlewares(endpoint endpoint.Endpoint, logger *zap.Logger,
 	duration metrics.Histogram, otTracer stdopentracing.Tracer,
-	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint{
+	zipkinTracer *stdzipkin.Tracer, operationName string) endpoint.Endpoint {
 
-	endpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 1))(endpoint)
+	endpoint = ratelimit.NewErroringLimiter(rate.NewLimiter(rate.Every(time.Second), 5))(endpoint)
 	endpoint = circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{}))(endpoint)
 	endpoint = opentracing.TraceServer(otTracer, operationName)(endpoint)
 	if zipkinTracer != nil {
@@ -250,12 +260,12 @@ type CreateUserResponse struct {
 }
 
 type GetUserResponse struct {
-	Err error `json:"err"`
+	Err  error      `json:"err"`
 	User model.User `json:"user"`
 }
 
 // ============================== Endpoint Response Failed Definitions ======================
-func (r CreateUserResponse) error() error { return r.Err }
+func (r CreateUserResponse) error() error  { return r.Err }
 func (r CreateUserResponse) Failed() error { return r.Err }
-func (r GetUserResponse) error() error { return r.Err }
-func (r GetUserResponse) Failed() error { return r.Err }
+func (r GetUserResponse) error() error     { return r.Err }
+func (r GetUserResponse) Failed() error    { return r.Err }

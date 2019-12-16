@@ -10,12 +10,14 @@ type Handler struct {
 	logger *zap.Logger
 }
 
-func NewTransportHandler(logger *zap.Logger) Handler{
+// NewTransportHandler defines a new transport handler
+func NewTransportHandler(logger *zap.Logger) Handler {
 	return Handler{
 		logger: logger,
 	}
 }
 
+// Handle Logs errors if present
 func (handler Handler) Handle(ctx context.Context, err error) {
 	handler.logger.Error("error", zap.Error(err))
 }

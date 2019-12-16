@@ -12,6 +12,9 @@ VERSION:=$(shell grep 'VERSION' pkg/version/version.go | awk '{ print $$4 }' | t
 clean:
 	GO111MODULE= cd src && ./scripts/cleanup.sh && cd ..
 
+format:
+	gofmt -s -w .
+
 start-services:
 	docker-compose up
 
@@ -65,4 +68,4 @@ release:
 
 swagger:
 	GO111MODULE=on go get github.com/swaggo/swag/cmd/swag
-	cd pkg/api && $$(go env GOPATH)/bin/swag init -g server.go
+	cd src/pkg/transport && $$(go env GOPATH)/bin/swag init -g http.go

@@ -18,28 +18,36 @@ import (
 )
 
 // Service is a CRUD interface definition for the user microservice
-//
-// CreateUser effectively add a user object to the backend data store
-// it takes as input an type interface and returns the object id of the created
-// user and any error encountered that may have occurred during this transaction
 type Service interface {
-	CreateUser(ctx context.Context, user model.User)(err error)
-	GetUserById(ctx context.Context, id string)(user model.User, err error)
-	GetUserByEmail(ctx context.Context, email string)(user model.User, err error)
-	GetUserByUsername(ctx context.Context, username string)(user model.User, err error)
-	LogIn(ctx context.Context, username, password string)(user model.User, err error)
+	// CreateUser effectively creates/adds a user object to the backend data store
+	// if it doesm't already exist.
+	CreateUser(ctx context.Context, user model.User) (err error)
+	// GetUserById queries the backend datastore for user objects based on a
+	// passed in user id parameter.
+	GetUserById(ctx context.Context, id string) (user model.User, err error)
+	// GetUserByEmail queries the backend datastore for user objects based on a
+	// passed in user email parameter.
+	GetUserByEmail(ctx context.Context, email string) (user model.User, err error)
+	// GetUserByUsername queries the backend datastore for user objects based on a
+	// passed in user username parameter.
+	GetUserByUsername(ctx context.Context, username string) (user model.User, err error)
+	// LogIn Checks if a user object exists in the backend datastore, performs some password checks,
+	// and attempts to log a given user into the system
+	LogIn(ctx context.Context, username, password string) (user model.User, err error)
 }
 
+// Counters is a type encompassing metrics for API definitions
+// associated with the user microservice
 type Counters struct {
-	CreateUserRequest metrics.Counter
+	CreateUserRequest           metrics.Counter
 	SuccessfulCreateUserRequest metrics.Counter
-	FailedCreateUserRequest metrics.Counter
-	GetUserRequest metrics.Counter
-	SuccessfulGetUserRequest metrics.Counter
-	FailedGetUserRequest metrics.Counter
-	SuccessfulLogInRequest metrics.Counter
-	FailedLogInRequest metrics.Counter
-	Duration metrics.Histogram
+	FailedCreateUserRequest     metrics.Counter
+	GetUserRequest              metrics.Counter
+	SuccessfulGetUserRequest    metrics.Counter
+	FailedGetUserRequest        metrics.Counter
+	SuccessfulLogInRequest      metrics.Counter
+	FailedLogInRequest          metrics.Counter
+	Duration                    metrics.Histogram
 }
 
 var validate = validator.New()
@@ -57,24 +65,26 @@ func New(logger *zap.Logger, db *gorm.DB, amqpProducer Queue, amqpConsumer Queue
 
 // NewBasicService returns a naïve, stateless implementation of Service.
 func NewBasicService(db *gorm.DB, logger *zap.Logger, amqpProducer Queue, amqpConsumer Queue) Service {
-	return basicService{logger:logger, database: database.NewDatabase(db),
+	return basicService{logger: logger, database: database.NewDatabase(db),
 		ConsumerQueues: amqpConsumer, ProducerQueues: amqpProducer}
 }
 
-type basicService struct{
-	logger *zap.Logger
-	database *database.Database
+// basicService is a type witholding references to logging, the backend datastroe,
+// as well as queues (producer and consumer)
+type basicService struct {
+	logger         *zap.Logger
+	database       *database.Database
 	ConsumerQueues Queue
 	ProducerQueues Queue
 }
 
 func (s basicService) LogIn(ctx context.Context, username, password string) (user model.User, err error) {
-	if username == ""{
+	if username == "" {
 		s.logger.Error(helper.ErrNoUsernameProvided.Error())
 		return user, helper.ErrNoUsernameProvided
 	}
 
-	if password == ""{
+	if password == "" {
 		s.logger.Error(helper.ErrNoPasswordProvided.Error())
 		return user, helper.ErrNoPasswordProvided
 	}
@@ -82,8 +92,8 @@ func (s basicService) LogIn(ctx context.Context, username, password string) (use
 	// check if user exists in the database
 	user, err = s.database.GetUserByUsername(username)
 
-	if err != nil{
-		if err == sql.ErrNoRows{
+	if err != nil {
+		if err == sql.ErrNoRows {
 			s.logger.Error(helper.ErrInvalidUsernameProvided.Error())
 			return user, helper.ErrInvalidUsernameProvided
 		}
@@ -96,7 +106,7 @@ func (s basicService) LogIn(ctx context.Context, username, password string) (use
 	// check if passwords match
 	isEqual := s.comparePasswords(user.PassWord, []byte(password))
 
-	if !isEqual{
+	if !isEqual {
 		s.logger.Error(helper.ErrInvalidPasswordProvided.Error())
 		return model.User{}, helper.ErrInvalidPasswordProvided
 	}
@@ -105,20 +115,17 @@ func (s basicService) LogIn(ctx context.Context, username, password string) (use
 }
 
 func (s basicService) GetUserById(ctx context.Context, id string) (user model.User, err error) {
-	return s.getUserFromQueryParam(ctx,database.GetUserByIdQuery,id)
+	return s.getUserFromQueryParam(ctx, database.GetUserByIdQuery, id)
 }
 
 func (s basicService) GetUserByEmail(ctx context.Context, email string) (user model.User, err error) {
-	return s.getUserFromQueryParam(ctx,database.GetUserByEmailQuery,email)
+	return s.getUserFromQueryParam(ctx, database.GetUserByEmailQuery, email)
 }
 
 func (s basicService) GetUserByUsername(ctx context.Context, username string) (user model.User, err error) {
-	return s.getUserFromQueryParam(ctx,database.GetUserByUsernameQuery,username)
+	return s.getUserFromQueryParam(ctx, database.GetUserByUsernameQuery, username)
 }
 
-// CreateUser implements service.
-//
-// Creates a user in the backend store given some user object of interface type
 func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (err error) {
 	// check for proper input argument
 	if unsafe.Sizeof(currentuser) == 0 {
@@ -126,7 +133,7 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 	}
 
 	err = s.validateUser(err, currentuser)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
@@ -140,12 +147,12 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 		return helper.ErrUserAlreadyExists
 	}
 
-	if err != nil && err != gorm.ErrRecordNotFound{
+	if err != nil && err != gorm.ErrRecordNotFound {
 		s.logger.Error(err.Error())
-		return  err
+		return err
 	}
 
-	if userExists{
+	if userExists {
 		return helper.ErrUserAlreadyExists
 	}
 
@@ -167,7 +174,8 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 	return nil
 }
 
-func (s basicService) validateAndHashPassword(currentuser model.User) (user model.User, err error){
+// validateAndHashPassword checks if a given user password and confirmed password match
+func (s basicService) validateAndHashPassword(currentuser model.User) (user model.User, err error) {
 	// check if confirmed password and actual password match
 	if currentuser.PassWord != currentuser.PassWordConfirmed {
 		s.logger.Error(helper.ErrPasswordsNotEqual.Error())
@@ -209,6 +217,7 @@ func (s basicService) validateUser(err error, currentuser model.User) error {
 	return nil
 }
 
+// hashAndSalt hashes and salts a password
 func (s basicService) hashAndSalt(pwd []byte) (string, error) {
 
 	// Use GenerateFromPassword to hash & salt pwd
@@ -226,6 +235,7 @@ func (s basicService) hashAndSalt(pwd []byte) (string, error) {
 	return string(hash), nil
 }
 
+// comparePasswords compares a hashed password and a plain password
 func (s basicService) comparePasswords(hashedPwd string, plainPwd []byte) bool {
 	// Since we'll be getting the hashed password from the DB it
 	// will be a string so we'll need to convert it to a byte slice
@@ -238,8 +248,9 @@ func (s basicService) comparePasswords(hashedPwd string, plainPwd []byte) bool {
 	return true
 }
 
-func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user model.User, err error){
-	user, err = s.database.GetUserBasedOnParam(param,query)
+// getUserFromQueryParam obtains a user based on a query parameter
+func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user model.User, err error) {
+	user, err = s.database.GetUserBasedOnParam(param, query)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return model.User{}, err
@@ -247,5 +258,3 @@ func (s basicService) getUserFromQueryParam(ctx context.Context, query string, p
 
 	return user, nil
 }
-
-

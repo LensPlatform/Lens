@@ -1,3 +1,16 @@
+// @title Lens Platform Users Microservice
+// @version 1.0.0
+// @description Go microservice for users, teams, and groups logic.
+
+// @contact.name Yoan Yomba
+// @contact.url https://github.com/LensPlatform/Lens
+
+// @license.name MIT License
+// @license.url https://github.com/stefanprodan/podinfo/blob/master/LICENSE
+
+// @host localhost:8085
+// @BasePath /
+// @schemes http https
 package main
 
 import (
@@ -35,7 +48,6 @@ import (
 	"github.com/LensPlatform/Lens/src/pkg/transport"
 )
 
-
 func main() {
 	// Load config file
 	config.LoadConfig()
@@ -46,7 +58,7 @@ func main() {
 	fs := flag.NewFlagSet("svc", flag.ExitOnError)
 	var (
 		debugAddr      = fs.String("debug.addr", ":8084", "Debug and metrics listen address")
-		httpAddr       = fs.String("http-addr",  ":8085", "HTTP listen address")
+		httpAddr       = fs.String("http-addr", ":8085", "HTTP listen address")
 		zipkinURL      = fs.String("zipkin-url", "", "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
 		zipkinBridge   = fs.Bool("zipkin-ot-bridge", true, "Use Zipkin OpenTracing bridge instead of native implementation")
 		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
@@ -90,7 +102,7 @@ func main() {
 			}
 			if !(*zipkinBridge) {
 				zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
-								zap.String("URL", *zipkinURL))
+					zap.String("URL", *zipkinURL))
 			}
 		}
 	}
@@ -195,26 +207,26 @@ func main() {
 	zapLogger.Info("exit", zap.Any("exiting process", g.Run()))
 }
 
+// InitService builds the layers of the service "onion" from the inside out. First, the
+// business logic service; then, the set of endpoints that wrap the service;
+// and finally, a series of concrete transport adapters. The adapters, like
+// the HTTP handler or the gRPC server, are the bridge between Go kit and
+// the interfaces that the transports expect
 func InitService(zapLogger *zap.Logger, db *gorm.DB, amqpproducerconn service.Queue,
-	             amqpconsumerconn service.Queue, counter service.Counters,
-	             tracer stdopentracing.Tracer, zipkinTracer *zipkin.Tracer) http.Handler {
+	amqpconsumerconn service.Queue, counter service.Counters,
+	tracer stdopentracing.Tracer, zipkinTracer *zipkin.Tracer) http.Handler {
 
-	// Build the layers of the service "onion" from the inside out. First, the
-	// business logic service; then, the set of endpoints that wrap the service;
-	// and finally, a series of concrete transport adapters. The adapters, like
-	// the HTTP handler or the gRPC server, are the bridge between Go kit and
-	// the interfaces that the transports expect. Note that we're not binding
-	// them to ports or anything yet; we'll do that next.
 	var (
-		svc = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, counter)
+		svc         = service.New(zapLogger, db, amqpproducerconn, amqpconsumerconn, counter)
 		endpoints   = endpoint.New(svc, zapLogger, counter.Duration, tracer, zipkinTracer)
 		httpHandler = transport.NewHTTPHandler(svc, endpoints, counter.Duration, tracer, zipkinTracer, zapLogger)
 	)
 	return httpHandler
 }
 
+// InitQueues initializes a set of producer and consumer amqp queues to be used for things such as
+// account registration emails amongst many others.
 func InitQueues(zapLogger *zap.Logger) (service.Queue, service.Queue) {
-	// connect to rabbitmq
 	amqpConnString := "amqp://user:bitnami@stats/"
 	producerQueueNames := []string{"lens_welcome_email", "lens_password_reset_email", "lens_email_reset_email"}
 	consumerQueueNames := []string{"user_inactive"}
@@ -229,11 +241,10 @@ func InitQueues(zapLogger *zap.Logger) (service.Queue, service.Queue) {
 	return amqpproducerconn, amqpconsumerconn
 }
 
+// InitMetrics Creates the (sparse) metrics used in the service.
 func InitMetrics() service.Counters {
-	// Create the (sparse) metrics we'll use in the service. They, too, are
-	// dependencies that we pass to components that use them.
 	var createUserReq, successfulCreateUserReq, failedCreateUserReq, getUserRequests, successfulGetUserReq,
-	failedGetUserReq, successfulLogInReq, failedLogInReq metrics.Counter
+		failedGetUserReq, successfulLogInReq, failedLogInReq metrics.Counter
 	{
 		// Business-level metrics.
 		createUserReq = prometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -298,20 +309,21 @@ func InitMetrics() service.Counters {
 	}
 
 	counter := service.Counters{
-		CreateUserRequest:createUserReq,
-		SuccessfulCreateUserRequest:successfulCreateUserReq,
-		FailedCreateUserRequest:failedCreateUserReq,
-		GetUserRequest:getUserRequests,
-		SuccessfulGetUserRequest:successfulGetUserReq,
-		FailedGetUserRequest:failedGetUserReq,
-		SuccessfulLogInRequest:successfulLogInReq,
-		FailedLogInRequest:failedLogInReq,
-		Duration: duration,
+		CreateUserRequest:           createUserReq,
+		SuccessfulCreateUserRequest: successfulCreateUserReq,
+		FailedCreateUserRequest:     failedCreateUserReq,
+		GetUserRequest:              getUserRequests,
+		SuccessfulGetUserRequest:    successfulGetUserReq,
+		FailedGetUserRequest:        failedGetUserReq,
+		SuccessfulLogInRequest:      successfulLogInReq,
+		FailedLogInRequest:          failedLogInReq,
+		Duration:                    duration,
 	}
 
 	return counter
 }
 
+// InitDbConnection initializes a database connection and creates associated tables/migrates schemas
 func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 	connString := config.Config.GetDatabaseConnectionString()
 	db, err := gorm.Open("postgres", connString)
@@ -320,7 +332,7 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 		os.Exit(1)
 	}
 
-	zapLogger.Info("successfully connected to database", )
+	zapLogger.Info("successfully connected to database")
 	db.SingularTable(true)
 	db.LogMode(false)
 	CreateTablesOrMigrateSchemas(db, zapLogger)
@@ -328,6 +340,8 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 	return db, err
 }
 
+// CreateTablesOrMigrateSchemas creates a given set of tables based on a schema
+// if it does not exist or migrates the table schemas to the latest version
 func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
 	var userTable models.UserTable
 	var teamsTable models.TeamTable
@@ -337,6 +351,7 @@ func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
 	groupTable.MigrateSchemaOrCreateTable(db, zapLogger)
 }
 
+// InitZap configures service level logging and tracing
 func InitZap(logLevel string) (*zap.Logger, error) {
 	level := zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	switch logLevel {
@@ -383,7 +398,7 @@ func InitZap(logLevel string) (*zap.Logger, error) {
 	return zapConfig.Build()
 }
 
-
+// usageFor is used to parse Operating System Flags defined
 func usageFor(fs *flag.FlagSet, short string) func() {
 	return func() {
 		_, _ = fmt.Fprintf(os.Stderr, "USAGE\n")

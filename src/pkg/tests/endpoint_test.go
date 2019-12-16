@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -24,10 +25,7 @@ import (
 func TestHTTP(t *testing.T) {
 	var err error
 	// Load config file
-	err = config.LoadConfig()
-	if err != nil {
-		return
-	}
+	config.LoadConfig()
 
 	logger := zaptest.NewLogger(t)
 	zkt, _ := zipkin.NewTracer(nil, zipkin.WithNoopTracer(true))
@@ -39,27 +37,36 @@ func TestHTTP(t *testing.T) {
 	defer db.Close()
 	amqpproducerconn, amqpconsumerconn := initQueues(err, logger)
 
-	svc := service.New(logger, db, amqpproducerconn, amqpconsumerconn, discard.NewCounter(), discard.NewCounter(),
-		discard.NewCounter(), discard.NewCounter(), discard.NewCounter(),
-		discard.NewCounter(), discard.NewCounter(), discard.NewCounter())
+	counters := service.Counters{
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewCounter(),
+		discard.NewHistogram(),
+	}
+	svc := service.New(logger, db, amqpproducerconn, amqpconsumerconn, counters)
 	eps := endpoint.New(svc, logger, discard.NewHistogram(), opentracing.GlobalTracer(), zkt)
 
-	mux := transport.NewHTTPHandler(svc, eps, discard.NewHistogram(),  opentracing.GlobalTracer(), zkt, logger)
+	mux := transport.NewHTTPHandler(svc, eps, discard.NewHistogram(), opentracing.GlobalTracer(), zkt, logger)
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
 	for _, testcase := range []struct {
 		method, url, body, want string
 	}{
-		{       "POST",
-				srv.URL + "/v1/user/create",
-				`
+		{"POST",
+			srv.URL + "/v1/user/create",
+			`
 				{"User":{"id":"","first_name":"yvan1","last_name":"yomba1","user_name":"yvanyomba1","email":"yvanyomba1@gmail.com",
 				"password":"Granada123!","password_confirmed":"Granada123!","age":24,"birth_date":"1996","phone_number":"07/12/1996",
 				"location":null,"bio":"Hello All!","education":null,"interests":{"industries_of_interest":null,
 				"topics_of_interest":null},"headline":"I am new here","subscriptions":null,"intent":"investors"}
 				}`,
-				`{"User":{"id":"","first_name":"yvan1","last_name":"yomba1","user_name":"yvanyomba1","email":"yvanyomba1@gmail.com",
+			`{"User":{"first_name":"yvan1","last_name":"yomba1","user_name":"yvanyomba1","email":"yvanyomba1@gmail.com",
 				"password":"Granada123!","password_confirmed":"Granada123!","age":24,"birth_date":"1996","phone_number":"07/12/1996",
 				"location":null,"bio":"Hello All!","education":null,"interests":{"industries_of_interest":null,
 				"topics_of_interest":null},"headline":"I am new here","subscriptions":null,"intent":"investors"}
@@ -68,7 +75,12 @@ func TestHTTP(t *testing.T) {
 		req, _ := http.NewRequest(testcase.method, testcase.url, strings.NewReader(testcase.body))
 		resp, _ := http.DefaultClient.Do(req)
 		body, _ := ioutil.ReadAll(resp.Body)
-		if want, have := testcase.want, strings.TrimSpace(string(body)); want != have {
+		fmt.Println(strings.TrimSpace(string(body)))
+
+		want, have := testcase.want, strings.TrimSpace(string(body))
+		t.Errorf("%s %s %s: want %q, have %q", testcase.method, testcase.url, testcase.body, want, have)
+
+		if want, have := testcase.want, strings.TrimSpace(string(body)); want == have {
 			t.Errorf("%s %s %s: want %q, have %q", testcase.method, testcase.url, testcase.body, want, have)
 		}
 	}
@@ -82,7 +94,7 @@ func initDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 		os.Exit(1)
 	}
 
-	zapLogger.Info("successfully connected to database", )
+	zapLogger.Info("successfully connected to database")
 	return db, err
 }
 

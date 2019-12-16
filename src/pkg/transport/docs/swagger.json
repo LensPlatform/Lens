@@ -1,0 +1,122 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {},
+        "license": {}
+    },
+    "paths": {
+        "/v1/metrics": {
+            "get": {
+                "description": "returns HTTP requests duration and Go runtime metrics",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kubernetes"
+                ],
+                "summary": "Prometheus metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user/create": {
+            "post": {
+                "description": "Creates a user in the backend datastore",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "HTTP API"
+                ],
+                "summary": "Hits the create user api endpoint",
+                "responses": {
+                    "200": {}
+                }
+            }
+        },
+        "/v1/user/email/{email}": {
+            "get": {
+                "description": "Obtains a user in the backend datastore based on the provided email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "HTTP API"
+                ],
+                "summary": "Hits the get user by email api endpoint",
+                "responses": {
+                    "200": {}
+                }
+            }
+        },
+        "/v1/user/id/{id}": {
+            "get": {
+                "description": "Obtains a user in the backend datastore based on the provided id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "HTTP API"
+                ],
+                "summary": "Hits the get user by id api endpoint",
+                "responses": {
+                    "200": {}
+                }
+            }
+        },
+        "/v1/user/login": {
+            "get": {
+                "description": "Attempts to log a user into the system given the user exists in the backend data store",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "HTTP API"
+                ],
+                "summary": "Hits the login user api endpoint",
+                "responses": {
+                    "200": {}
+                }
+            }
+        },
+        "/v1/user/username/{username}": {
+            "get": {
+                "description": "Obtains a user in the backend datastore based on the provided username",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "HTTP API"
+                ],
+                "summary": "Hits the get user by username api endpoint",
+                "responses": {
+                    "200": {}
+                }
+            }
+        }
+    }
+}

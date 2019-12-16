@@ -4,13 +4,16 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type Queue struct{
+// Queues is an entity witholding connections to queues and references to channels/queues
+type Queue struct {
 	AmqpConnection *amqp.Connection
-	Channel *amqp.Channel
-	Entities map[string]amqp.Queue
+	Channel        *amqp.Channel
+	Entities       map[string]amqp.Queue
 }
 
-func NewAmqpConnection(connstring string, queueNames []string)(Queue, error){
+// NewAmqpConnection takes a set of queue names, creates
+// those channels, and establishes connections to such queues
+func NewAmqpConnection(connstring string, queueNames []string) (Queue, error) {
 	conn, err := amqp.Dial(connstring)
 
 	if err != nil {
@@ -24,17 +27,17 @@ func NewAmqpConnection(connstring string, queueNames []string)(Queue, error){
 	}
 
 	var (
-		queue amqp.Queue
+		queue  amqp.Queue
 		queues = make(map[string]amqp.Queue)
-		)
+	)
 	for _, channelName := range queueNames {
-		queue , err  = ch.QueueDeclare(
+		queue, err = ch.QueueDeclare(
 			channelName,
 			true,  /*durable connection*/
 			false, /*auto delete*/
 			false, /*exclusive*/
 			false, /*nowai*t*/
-			nil    /*arg amqp.table*/)
+			nil /*arg amqp.table*/)
 
 		if err != nil {
 			return Queue{}, err
@@ -42,22 +45,23 @@ func NewAmqpConnection(connstring string, queueNames []string)(Queue, error){
 		queues[channelName] = queue
 	}
 
-	return Queue{AmqpConnection:conn, Channel:ch, Entities: queues}, nil
+	return Queue{AmqpConnection: conn, Channel: ch, Entities: queues}, nil
 }
 
-func (q Queue) SendMessageToQueue(message string, queueName string) error{
+// SendMessageToQueue sends messages to queues
+func (q Queue) SendMessageToQueue(message string, queueName string) error {
 	publishedMsg := amqp.Publishing{
-		DeliveryMode:2, // persistent msg delivery
-		Body: []byte(message),
-		Priority: 4,
-		Type: "SendWelcomeEmail",
+		DeliveryMode: 2, // persistent msg delivery
+		Body:         []byte(message),
+		Priority:     4,
+		Type:         "SendWelcomeEmail",
 	}
 
 	err := q.Channel.Publish(
-		"",            // exchange string
+		"",                         // exchange string
 		q.Entities[queueName].Name, // key string
-		false,         // mandatory
-		false,         // immediate
+		false,                      // mandatory
+		false,                      // immediate
 		publishedMsg)
 
 	if err != nil {
@@ -67,16 +71,17 @@ func (q Queue) SendMessageToQueue(message string, queueName string) error{
 	return nil
 }
 
-func (q Queue) ConsumerMessageFromQueue(message string, queueName string) ([]interface{}, error){
+// ConsumerMessageFromQueue consumes messages from queues
+func (q Queue) ConsumerMessageFromQueue(message string, queueName string) ([]interface{}, error) {
 	var response []interface{}
 
 	msgs, err := q.Channel.Consume(
 		q.Entities[queueName].Name, // queue string
-		"", // consumer string
-		true, // auto ack
-		false, // exclusive bool
-		false, // no local
-		false, // no wait
+		"",                         // consumer string
+		true,                       // auto ack
+		false,                      // exclusive bool
+		false,                      // no local
+		false,                      // no wait
 		nil)
 
 	if err != nil {

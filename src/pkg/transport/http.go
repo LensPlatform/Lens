@@ -5,16 +5,18 @@
  */
 package transport
 
-import  (
+import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"github.com/go-kit/kit/metrics"
 	"github.com/gorilla/mux"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/swaggo/swag"
 	"go.uber.org/zap"
+	"net/http"
 
 	_ "github.com/go-kit/kit/log"
 	_ "github.com/go-kit/kit/tracing/opentracing"
@@ -25,18 +27,17 @@ import  (
 	_ "github.com/go-kit/kit/endpoint"
 
 	serviceendpoint "github.com/LensPlatform/Lens/src/pkg/endpoint"
-	service "github.com/LensPlatform/Lens/src/pkg/service"
 	utils "github.com/LensPlatform/Lens/src/pkg/helper"
-
+	service "github.com/LensPlatform/Lens/src/pkg/service"
 )
 
 // NewHTTPHandler returns an HTTP handler that makes a set of endpoints
 // available on predefined paths.
 func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
-					duration metrics.Histogram, otTracer stdopentracing.Tracer,
-					zipkinTracer *stdzipkin.Tracer, logger *zap.Logger) http.Handler {
+	duration metrics.Histogram, otTracer stdopentracing.Tracer,
+	zipkinTracer *stdzipkin.Tracer, logger *zap.Logger) http.Handler {
 	r := mux.NewRouter()
-	e := serviceendpoint.MakeServerEndpoints(s,logger, duration, otTracer, zipkinTracer)
+	e := serviceendpoint.MakeServerEndpoints(s, logger, duration, otTracer, zipkinTracer)
 	var options = []httptransport.ServerOption{
 		httptransport.ServerErrorHandler(utils.NewTransportHandler(logger)),
 		httptransport.ServerErrorEncoder(encodeError),
@@ -50,43 +51,125 @@ func NewHTTPHandler(s service.Service, endpoints serviceendpoint.Set,
 		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
 	}
 
-	// POST    /user/create-user                          creates a user profile
-	// GET    /user/username/:username                         Gets a user profile by username
-	// GET    /user/:id                         Gets a user profile by id
-	// GET    /user/email/:email                         Gets a user profile by email
-	r.Methods("POST").Path("/v1/user/create").Handler(httptransport.NewServer(
-		e.CreateUserEndpoint,
-		decodeCreateUserRequest,
-		encodeResponse,
-		options...,
-		))
-	r.Methods("GET").Path("/v1/user/username/{username}").Handler(httptransport.NewServer(
-		e.GetUserByUsernameEndpoint,
-		decodeGetUserRequestByUsername,
-		encodeResponse,
-		options...,
+	CreateUserEndpoint(r, e, options)
+	GetUserByUsername(r, e, options)
+	GetUserById(r, e, options)
+	LogInUser(r, e, options)
+	GetServiceMetrics(r)
+	GetSwaggerDocumentation(r, logger)
+
+	return r
+}
+
+func GetSwaggerDocumentation(r *mux.Router, logger *zap.Logger) {
+	r.Methods("GET").Path("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("/docs/swagger/doc.json"),
 	))
-	r.Methods("GET").Path("/v1/user/id/{id}").Handler(httptransport.NewServer(
-		e.GetUserByIdEndpoint,
-		decodeGetUserRequestById,
-		encodeResponse,
-		options...,
-	))
-	r.Methods("GET").Path("/v1/user/email/{email}").Handler(httptransport.NewServer(
-		e.GetUserByEmailEndpoint,
-		decodeGetUserRequestByEmail,
-		encodeResponse,
-		options...,
-	))
+	r.Methods("GET").Path("/swagger.json").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		doc, err := swag.ReadDoc()
+		if err != nil {
+			logger.Error("swagger error", zap.Error(err), zap.String("path", "/docs/swagger.json"))
+		}
+		w.Write([]byte(doc))
+	})
+}
+
+// GetServiceMetricsgodoc
+// @Summary Prometheus metrics
+// @Description returns HTTP requests duration and Go runtime metrics
+// @Tags Kubernetes
+// @Accept json
+// @Produce json
+// @Router /v1/metrics [get]
+// @Success 200 {string} string "OK"
+func GetServiceMetrics(r *mux.Router) *mux.Route {
+	return r.Methods("GET").Path("/v1/metrics").Handler(promhttp.Handler())
+}
+
+// LogIn User godoc
+// @Summary Hits the login user api endpoint
+// @Description Attempts to log a user into the system given the user exists in the backend data store
+// @Tags HTTP API
+// @Accept json
+// @Produce json
+// @Router /v1/user/login [get]
+// @Success 200
+func LogInUser(r *mux.Router, e serviceendpoint.Set, options []httptransport.ServerOption) {
+	GetUserByEmail(r, e, options)
 	r.Methods("GET").Path("/v1/user/login").Handler(httptransport.NewServer(
 		e.LoginEndpoint,
 		decodeLogin,
 		encodeResponse,
 		options...,
 	))
+}
 
-	r.Methods("GET").Path("/v1/metrics").Handler(promhttp.Handler())
-	return r
+// Get User by Email godoc
+// @Summary Hits the get user by email api endpoint
+// @Description Obtains a user in the backend datastore based on the provided email
+// @Tags HTTP API
+// @Accept json
+// @Produce json
+// @Router /v1/user/email/{email} [get]
+// @Success 200
+func GetUserByEmail(r *mux.Router, e serviceendpoint.Set, options []httptransport.ServerOption) *mux.Route {
+	return r.Methods("GET").Path("/v1/user/email/{email}").Handler(httptransport.NewServer(
+		e.GetUserByEmailEndpoint,
+		decodeGetUserRequestByEmail,
+		encodeResponse,
+		options...,
+	))
+}
+
+// Get User by ID godoc
+// @Summary Hits the get user by id api endpoint
+// @Description Obtains a user in the backend datastore based on the provided id
+// @Tags HTTP API
+// @Accept json
+// @Produce json
+// @Router /v1/user/id/{id} [get]
+// @Success 200
+func GetUserById(r *mux.Router, e serviceendpoint.Set, options []httptransport.ServerOption) *mux.Route {
+	return r.Methods("GET").Path("/v1/user/id/{id}").Handler(httptransport.NewServer(
+		e.GetUserByIdEndpoint,
+		decodeGetUserRequestById,
+		encodeResponse,
+		options...,
+	))
+}
+
+// Get User by Username godoc
+// @Summary Hits the get user by username api endpoint
+// @Description Obtains a user in the backend datastore based on the provided username
+// @Tags HTTP API
+// @Accept json
+// @Produce json
+// @Router /v1/user/username/{username} [get]
+// @Success 200
+func GetUserByUsername(r *mux.Router, e serviceendpoint.Set, options []httptransport.ServerOption) *mux.Route {
+	return r.Methods("GET").Path("/v1/user/username/{username}").Handler(httptransport.NewServer(
+		e.GetUserByUsernameEndpoint,
+		decodeGetUserRequestByUsername,
+		encodeResponse,
+		options...,
+	))
+}
+
+// Create User godoc
+// @Summary Hits the create user api endpoint
+// @Description Creates a user in the backend datastore
+// @Tags HTTP API
+// @Accept json
+// @Produce json
+// @Router /v1/user/create [post]
+// @Success 200
+func CreateUserEndpoint(r *mux.Router, e serviceendpoint.Set, options []httptransport.ServerOption) *mux.Route {
+	return r.Methods("POST").Path("/v1/user/create").Handler(httptransport.NewServer(
+		e.CreateUserEndpoint,
+		decodeCreateUserRequest,
+		encodeResponse,
+		options...,
+	))
 }
 
 // errorer is implemented by all concrete response types that may contain

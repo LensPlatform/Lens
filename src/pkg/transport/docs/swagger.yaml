@@ -1,0 +1,81 @@
+info:
+  contact: {}
+  license: {}
+paths:
+  /v1/metrics:
+    get:
+      consumes:
+      - application/json
+      description: returns HTTP requests duration and Go runtime metrics
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Prometheus metrics
+      tags:
+      - Kubernetes
+  /v1/user/create:
+    post:
+      consumes:
+      - application/json
+      description: Creates a user in the backend datastore
+      produces:
+      - application/json
+      responses:
+        "200": {}
+      summary: Hits the create user api endpoint
+      tags:
+      - HTTP API
+  /v1/user/email/{email}:
+    get:
+      consumes:
+      - application/json
+      description: Obtains a user in the backend datastore based on the provided email
+      produces:
+      - application/json
+      responses:
+        "200": {}
+      summary: Hits the get user by email api endpoint
+      tags:
+      - HTTP API
+  /v1/user/id/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Obtains a user in the backend datastore based on the provided id
+      produces:
+      - application/json
+      responses:
+        "200": {}
+      summary: Hits the get user by id api endpoint
+      tags:
+      - HTTP API
+  /v1/user/login:
+    get:
+      consumes:
+      - application/json
+      description: Attempts to log a user into the system given the user exists in
+        the backend data store
+      produces:
+      - application/json
+      responses:
+        "200": {}
+      summary: Hits the login user api endpoint
+      tags:
+      - HTTP API
+  /v1/user/username/{username}:
+    get:
+      consumes:
+      - application/json
+      description: Obtains a user in the backend datastore based on the provided username
+      produces:
+      - application/json
+      responses:
+        "200": {}
+      summary: Hits the get user by username api endpoint
+      tags:
+      - HTTP API
+swagger: "2.0"
