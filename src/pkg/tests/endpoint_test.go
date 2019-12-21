@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -66,22 +65,28 @@ func TestHTTP(t *testing.T) {
 				"location":null,"bio":"Hello All!","education":null,"interests":{"industries_of_interest":null,
 				"topics_of_interest":null},"headline":"I am new here","subscriptions":null,"intent":"investors"}
 				}`,
-			`{"User":{"first_name":"yvan1","last_name":"yomba1","user_name":"yvanyomba1","email":"yvanyomba1@gmail.com",
+			`{"User":{"id":"","first_name":"yvan1","last_name":"yomba1","user_name":"yvanyomba1","email":"yvanyomba1@gmail.com",
 				"password":"Granada123!","password_confirmed":"Granada123!","age":24,"birth_date":"1996","phone_number":"07/12/1996",
 				"location":null,"bio":"Hello All!","education":null,"interests":{"industries_of_interest":null,
 				"topics_of_interest":null},"headline":"I am new here","subscriptions":null,"intent":"investors"}
 				}`},
 	} {
-		req, _ := http.NewRequest(testcase.method, testcase.url, strings.NewReader(testcase.body))
+		req, err := http.NewRequest(testcase.method, testcase.url, strings.NewReader(testcase.body))
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		resp, _ := http.DefaultClient.Do(req)
 		body, _ := ioutil.ReadAll(resp.Body)
-		fmt.Println(strings.TrimSpace(string(body)))
+		logger.Info(strings.TrimSpace(string(body)))
 
-		want, have := testcase.want, strings.TrimSpace(string(body))
-		t.Errorf("%s %s %s: want %q, have %q", testcase.method, testcase.url, testcase.body, want, have)
+		if resp.StatusCode != http.StatusAccepted {
+			t.Errorf("handler returned wrong status code: got %v want %v", resp.StatusCode, http.StatusAccepted)
+		}
 
-		if want, have := testcase.want, strings.TrimSpace(string(body)); want == have {
-			t.Errorf("%s %s %s: want %q, have %q", testcase.method, testcase.url, testcase.body, want, have)
+		// Check the response body is what we expect.
+		if strings.TrimSpace(string(body)) != testcase.want {
+			t.Errorf("%s %s %s: want %q, have %q", testcase.method, testcase.url, testcase.body, testcase.want, strings.TrimSpace(string(body)))
 		}
 	}
 }

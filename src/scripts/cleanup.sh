@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 echo ">>>>>>>>>>>>>>>>>LENS PLATFORM<<<<<<<<<<<<<<<<<<<<<"
-echo "Stopping All Docker Containers"
+echo "Stopping All docker Containers"
 docker stop $(docker ps -a -q)
 echo ">>>>>>>>>>>>>>>>>LENS PLATFORM<<<<<<<<<<<<<<<<<<<<<"
-echo "Removing All Stopped Docker Containers"
+echo "Removing All Stopped docker Containers"
 docker rm $(docker ps -a -q)
 echo "Removing Volumes"
 docker volume rm $(docker volume ls -qf dangling=true)
