@@ -23,6 +23,17 @@ run:
 	--level=debug --grpc-port=9999 --backend-url=https://httpbin.org/status/401 --backend-url=https://httpbin.org/status/500 \
 	--ui-logo=https://raw.githubusercontent.com/stefanprodan/podinfo/gh-pages/cuddle_clap.gif --ui-color=#34577c
 
+generate-proto:
+	protoc -I. \
+			-I$(GOPATH)/src \
+			-I=$(GOPATH)/src/github.com/infobloxopen/protoc-gen-gorm \
+			-I=$(GOPATH)/src/github.com/infobloxopen/atlas-app-toolkit \
+			-I=$(GOPATH)/src/github.com/lyft/protoc-gen-validate/validate/validate.proto \
+			-I=$(GOPATH)/src/github.com/infobloxopen/protoc-gen-gorm/options \
+			--proto_path=${GOPATH}/src/github.com/gogo/protobuf/protobuf \
+            --govalidators_out=./src/pkg/models/ \
+			--go_out=plugins=grpc:./src/pkg/models/ --gorm_out="engine=postgres:./src/pkg/models/" ./proto/*.proto
+
 test:
 	GO111MODULE=on go test -v -race ./...
 

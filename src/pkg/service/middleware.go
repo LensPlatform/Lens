@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	model "github.com/LensPlatform/Lens/src/pkg/models"
+	user_service "github.com/LensPlatform/Lens/src/pkg/models/proto"
 )
 
 // Middleware describes a service specific middleware
@@ -26,7 +26,7 @@ type loggingMiddleware struct {
 }
 
 // A logging wrapper around the LogIn service implementation
-func (mw loggingMiddleware) LogIn(ctx context.Context, username, password string) (user model.User, err error) {
+func (mw loggingMiddleware) LogIn(ctx context.Context, username, password string) (user user_service.UserORM, err error) {
 	defer func() {
 		if err != nil {
 			mw.logger.Info("Request Completed",
@@ -38,13 +38,13 @@ func (mw loggingMiddleware) LogIn(ctx context.Context, username, password string
 	user, err = mw.next.LogIn(ctx, username, password)
 
 	if err != nil {
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 	return user, nil
 }
 
 // A logging wrapper around the GetUserById service implementation
-func (mw loggingMiddleware) GetUserById(ctx context.Context, id string) (user model.User, err error) {
+func (mw loggingMiddleware) GetUserById(ctx context.Context, id string) (user user_service.UserORM, err error) {
 	defer func() {
 		if err != nil {
 			mw.logger.Info("Request Completed",
@@ -56,13 +56,13 @@ func (mw loggingMiddleware) GetUserById(ctx context.Context, id string) (user mo
 	user, err = mw.next.GetUserById(ctx, id)
 
 	if err != nil {
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 	return user, nil
 }
 
 // A logging wrapper around the GetUserByEmail service implementation
-func (mw loggingMiddleware) GetUserByEmail(ctx context.Context, email string) (user model.User, err error) {
+func (mw loggingMiddleware) GetUserByEmail(ctx context.Context, email string) (user user_service.UserORM, err error) {
 	defer func() {
 		if err != nil {
 			mw.logger.Info("Request Completed",
@@ -74,13 +74,13 @@ func (mw loggingMiddleware) GetUserByEmail(ctx context.Context, email string) (u
 	user, err = mw.next.GetUserByEmail(ctx, email)
 
 	if err != nil {
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 	return user, nil
 }
 
 // A logging wrapper around the GetUserByUsername service implementation
-func (mw loggingMiddleware) GetUserByUsername(ctx context.Context, username string) (user model.User, err error) {
+func (mw loggingMiddleware) GetUserByUsername(ctx context.Context, username string) (user user_service.UserORM, err error) {
 	defer func() {
 		if err != nil {
 			mw.logger.Info("Request Completed",
@@ -92,13 +92,13 @@ func (mw loggingMiddleware) GetUserByUsername(ctx context.Context, username stri
 	user, err = mw.next.GetUserByUsername(ctx, username)
 
 	if err != nil {
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 	return user, nil
 }
 
 // A logging wrapper around the create user service implementation
-func (mw loggingMiddleware) CreateUser(ctx context.Context, user model.User) (err error) {
+func (mw loggingMiddleware) CreateUser(ctx context.Context, user user_service.UserORM) (err error) {
 	defer func() {
 		if err != nil {
 			mw.logger.Info("Request Completed",
@@ -142,12 +142,12 @@ type instrumentingMiddleware struct {
 }
 
 // An instrumenting wrapper around the LogIn service implementation
-func (mw instrumentingMiddleware) LogIn(ctx context.Context, username, password string) (user model.User, err error) {
+func (mw instrumentingMiddleware) LogIn(ctx context.Context, username, password string) (user user_service.UserORM, err error) {
 	user, err = mw.next.LogIn(ctx, username, password)
 
 	if err != nil {
 		mw.FailedLogInRequest.Add(1)
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 
 	mw.SuccessfulLogInRequest.Add(1)
@@ -155,13 +155,13 @@ func (mw instrumentingMiddleware) LogIn(ctx context.Context, username, password 
 }
 
 // An instrumenting wrapper around the GetUserById service implementation
-func (mw instrumentingMiddleware) GetUserById(ctx context.Context, id string) (user model.User, err error) {
+func (mw instrumentingMiddleware) GetUserById(ctx context.Context, id string) (user user_service.UserORM, err error) {
 	mw.GetUserRequest.Add(1)
 	user, err = mw.next.GetUserById(ctx, id)
 
 	if err != nil {
 		mw.FailedGetUserRequest.Add(1)
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 
 	mw.SuccessfulGetUserRequest.Add(1)
@@ -169,13 +169,13 @@ func (mw instrumentingMiddleware) GetUserById(ctx context.Context, id string) (u
 }
 
 // An instrumenting wrapper around the GetUserByEmail service implementation
-func (mw instrumentingMiddleware) GetUserByEmail(ctx context.Context, email string) (user model.User, err error) {
+func (mw instrumentingMiddleware) GetUserByEmail(ctx context.Context, email string) (user user_service.UserORM, err error) {
 	mw.GetUserRequest.Add(1)
 	user, err = mw.next.GetUserByEmail(ctx, email)
 
 	if err != nil {
 		mw.FailedGetUserRequest.Add(1)
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 
 	mw.SuccessfulGetUserRequest.Add(1)
@@ -183,13 +183,13 @@ func (mw instrumentingMiddleware) GetUserByEmail(ctx context.Context, email stri
 }
 
 // An instrumenting wrapper around the GetUserByUsername service implementation
-func (mw instrumentingMiddleware) GetUserByUsername(ctx context.Context, username string) (user model.User, err error) {
+func (mw instrumentingMiddleware) GetUserByUsername(ctx context.Context, username string) (user user_service.UserORM, err error) {
 	mw.GetUserRequest.Add(1)
 	user, err = mw.next.GetUserByUsername(ctx, username)
 
 	if err != nil {
 		mw.FailedGetUserRequest.Add(1)
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 
 	mw.SuccessfulGetUserRequest.Add(1)
@@ -197,7 +197,7 @@ func (mw instrumentingMiddleware) GetUserByUsername(ctx context.Context, usernam
 }
 
 // An instrumenting wrapper around the create user service implementation
-func (mw instrumentingMiddleware) CreateUser(ctx context.Context, user model.User) (err error) {
+func (mw instrumentingMiddleware) CreateUser(ctx context.Context, user user_service.UserORM) (err error) {
 	mw.CreateUserRequest.Add(1)
 	err = mw.next.CreateUser(ctx, user)
 

@@ -12,28 +12,32 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/go-playground/validator.v9"
 
-	"github.com/LensPlatform/Lens/src/pkg/database"
+	database "github.com/LensPlatform/Lens/src/internal/database/postgresql"
 	"github.com/LensPlatform/Lens/src/pkg/helper"
-	model "github.com/LensPlatform/Lens/src/pkg/models"
+	user_service "github.com/LensPlatform/Lens/src/pkg/models/proto"
 )
 
 // Service is a CRUD interface definition for the user microservice
 type Service interface {
 	// CreateUser effectively creates/adds a user object to the backend data store
 	// if it doesm't already exist.
-	CreateUser(ctx context.Context, user model.User) (err error)
+	CreateUser(ctx context.Context, user user_service.UserORM) (err error)
+
 	// GetUserById queries the backend datastore for user objects based on a
 	// passed in user id parameter.
-	GetUserById(ctx context.Context, id string) (user model.User, err error)
+	GetUserById(ctx context.Context, id string) (user user_service.UserORM, err error)
+
 	// GetUserByEmail queries the backend datastore for user objects based on a
 	// passed in user email parameter.
-	GetUserByEmail(ctx context.Context, email string) (user model.User, err error)
+	GetUserByEmail(ctx context.Context, email string) (user user_service.UserORM, err error)
+
 	// GetUserByUsername queries the backend datastore for user objects based on a
 	// passed in user username parameter.
-	GetUserByUsername(ctx context.Context, username string) (user model.User, err error)
+	GetUserByUsername(ctx context.Context, username string) (user user_service.UserORM, err error)
+
 	// LogIn Checks if a user object exists in the backend datastore, performs some password checks,
 	// and attempts to log a given user into the system
-	LogIn(ctx context.Context, username, password string) (user model.User, err error)
+	LogIn(ctx context.Context, username, password string) (user user_service.UserORM, err error)
 }
 
 // Counters is a type encompassing metrics for API definitions
@@ -65,7 +69,7 @@ func New(logger *zap.Logger, db *gorm.DB, amqpProducer Queue, amqpConsumer Queue
 
 // NewBasicService returns a naïve, stateless implementation of Service.
 func NewBasicService(db *gorm.DB, logger *zap.Logger, amqpProducer Queue, amqpConsumer Queue) Service {
-	return basicService{logger: logger, database: database.NewDatabase(db),
+	return basicService{logger: logger, database: &database.Database{db, logger},
 		ConsumerQueues: amqpConsumer, ProducerQueues: amqpProducer}
 }
 
@@ -78,7 +82,9 @@ type basicService struct {
 	ProducerQueues Queue
 }
 
-func (s basicService) LogIn(ctx context.Context, username, password string) (user model.User, err error) {
+// Login performs some validation and attempts to log in a user into the system if the input parameters
+// are indeed correct
+func (s basicService) LogIn(ctx context.Context, username, password string) (user user_service.UserORM, err error) {
 	if username == "" {
 		s.logger.Error(helper.ErrNoUsernameProvided.Error())
 		return user, helper.ErrNoUsernameProvided
@@ -90,7 +96,7 @@ func (s basicService) LogIn(ctx context.Context, username, password string) (use
 	}
 
 	// check if user exists in the database
-	user, err = s.database.GetUserByUsername(username)
+	err, currentUser := s.database.GetUserByUsername(username)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -101,59 +107,39 @@ func (s basicService) LogIn(ctx context.Context, username, password string) (use
 		return user, err
 	}
 
-	s.logger.Info("Password", zap.String("password", user.PassWord))
+	// TODO: Might not want to log user passwords
+	s.logger.Info("Password", zap.String("password", currentUser.Password))
 
 	// check if passwords match
-	isEqual := s.comparePasswords(user.PassWord, []byte(password))
+	isEqual := s.comparePasswords(currentUser.Password, []byte(password))
 
 	if !isEqual {
 		s.logger.Error(helper.ErrInvalidPasswordProvided.Error())
-		return model.User{}, helper.ErrInvalidPasswordProvided
+		return user_service.UserORM{}, helper.ErrInvalidPasswordProvided
 	}
 
 	return user, nil
 }
 
-func (s basicService) GetUserById(ctx context.Context, id string) (user model.User, err error) {
-	return s.getUserFromQueryParam(ctx, database.GetUserByIdQuery, id)
+func (s basicService) GetUserById(ctx context.Context, id string) (user user_service.UserORM, err error) {
+	query := "SELECT * FROM users_table WHERE id =$1"
+	return s.getUserFromQueryParam(ctx, query, id)
 }
 
-func (s basicService) GetUserByEmail(ctx context.Context, email string) (user model.User, err error) {
-	return s.getUserFromQueryParam(ctx, database.GetUserByEmailQuery, email)
+func (s basicService) GetUserByEmail(ctx context.Context, email string) (user user_service.UserORM, err error) {
+	query := "SELECT * FROM users_table WHERE email =$1"
+	return s.getUserFromQueryParam(ctx, query, email)
 }
 
-func (s basicService) GetUserByUsername(ctx context.Context, username string) (user model.User, err error) {
-	return s.getUserFromQueryParam(ctx, database.GetUserByUsernameQuery, username)
+func (s basicService) GetUserByUsername(ctx context.Context, username string) (user user_service.UserORM, err error) {
+	query := "SELECT * FROM users_table WHERE username =$1"
+	return s.getUserFromQueryParam(ctx, query, username)
 }
 
-func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (err error) {
+func (s basicService) CreateUser(ctx context.Context, currentuser user_service.UserORM) (err error) {
 	// check for proper input argument
 	if unsafe.Sizeof(currentuser) == 0 {
 		return helper.ErrNoUserProvided
-	}
-
-	err = s.validateUser(err, currentuser)
-	if err != nil {
-		return err
-	}
-
-	// check if user exists already in data store based on
-	// id, user name, and email address
-	userExists, err := s.database.DoesUserExist(currentuser.Username, "username = ?")
-
-	s.logger.Info("does user exist", zap.Bool("user exists", userExists))
-
-	if userExists == true {
-		return helper.ErrUserAlreadyExists
-	}
-
-	if err != nil && err != gorm.ErrRecordNotFound {
-		s.logger.Error(err.Error())
-		return err
-	}
-
-	if userExists {
-		return helper.ErrUserAlreadyExists
 	}
 
 	currentuser, err = s.validateAndHashPassword(currentuser)
@@ -161,40 +147,44 @@ func (s basicService) CreateUser(ctx context.Context, currentuser model.User) (e
 		return err
 	}
 
-	s.logger.Info("Adding User")
-	// Create user in database
 	err = s.database.CreateUser(currentuser)
 	if err != nil {
-		s.logger.Error(err.Error())
 		return err
 	}
 
+	s.logger.Info("User added", zap.String("Username", currentuser.UserName))
+
+	// TODO: Pass a struct array with a lot of data such as user id, msg id, email, content, time sent, etc
 	// write to the create welcome email queue
-	_ = s.ProducerQueues.SendMessageToQueue("Welcome To Lens", "lens_welcome_email")
+	err = s.ProducerQueues.SendMessageToQueue(helper.WelcomeMessage(currentuser.FirstName, currentuser.LastName), "lens_welcome_email")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // validateAndHashPassword checks if a given user password and confirmed password match
-func (s basicService) validateAndHashPassword(currentuser model.User) (user model.User, err error) {
+func (s basicService) validateAndHashPassword(currentuser user_service.UserORM) (user user_service.UserORM, err error) {
 	// check if confirmed password and actual password match
-	if currentuser.PassWord != currentuser.PassWordConfirmed {
+	if currentuser.Password != currentuser.PasswordConfirmed {
 		s.logger.Error(helper.ErrPasswordsNotEqual.Error())
 		return currentuser, helper.ErrPasswordsNotEqual
 	}
 	//  hash password
-	hashedPassword, err := s.hashAndSalt([]byte(currentuser.PassWord))
+	hashedPassword, err := s.hashAndSalt([]byte(currentuser.Password))
 	if err != nil {
 		s.logger.Error(err.Error())
 		return currentuser, err
 	}
 	// reset the hashed passwords
-	currentuser.PassWord = hashedPassword
-	currentuser.PassWordConfirmed = hashedPassword
+	currentuser.Password = hashedPassword
+	currentuser.PasswordConfirmed = hashedPassword
 
 	return currentuser, nil
 }
 
-func (s basicService) validateUser(err error, currentuser model.User) error {
+func (s basicService) validateUser(err error, currentuser user_service.UserORM) error {
 	// validate fields are present
 	err = validate.Struct(currentuser)
 	if err != nil {
@@ -249,11 +239,11 @@ func (s basicService) comparePasswords(hashedPwd string, plainPwd []byte) bool {
 }
 
 // getUserFromQueryParam obtains a user based on a query parameter
-func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user model.User, err error) {
+func (s basicService) getUserFromQueryParam(ctx context.Context, query string, param string) (user user_service.UserORM, err error) {
 	user, err = s.database.GetUserBasedOnParam(param, query)
 	if err != nil {
 		s.logger.Error(err.Error())
-		return model.User{}, err
+		return user_service.UserORM{}, err
 	}
 
 	return user, nil

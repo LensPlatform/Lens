@@ -24,7 +24,7 @@ import (
 func TestHTTP(t *testing.T) {
 	var err error
 	// Load config file
-	config.LoadConfig()
+	config.DefaultConfiguration()
 
 	logger := zaptest.NewLogger(t)
 	zkt, _ := zipkin.NewTracer(nil, zipkin.WithNoopTracer(true))

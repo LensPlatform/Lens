@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
+	"github.com/alexflint/go-arg"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/jinzhu/gorm"
@@ -37,50 +38,149 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"sourcegraph.com/sourcegraph/appdash"
 	appdashot "sourcegraph.com/sourcegraph/appdash/opentracing"
 
+	"github.com/LensPlatform/Lens/src/internal/log"
 	"github.com/LensPlatform/Lens/src/pkg/config"
 	"github.com/LensPlatform/Lens/src/pkg/endpoint"
-	"github.com/LensPlatform/Lens/src/pkg/models"
+	models "github.com/LensPlatform/Lens/src/pkg/models/proto"
 	"github.com/LensPlatform/Lens/src/pkg/service"
 	"github.com/LensPlatform/Lens/src/pkg/transport"
 )
 
 func main() {
 	// Load config file
-	config.LoadConfig()
-
-	// Define our flags. Your service probably won't need to bind listeners for
-	// *all* supported transports, or support both Zipkin and LightStep, and so
-	// on, but we do it here for demonstration purposes.
-	fs := flag.NewFlagSet("svc", flag.ExitOnError)
-	var (
-		debugAddr      = fs.String("debug.addr", ":8084", "Debug and metrics listen address")
-		httpAddr       = fs.String("http-addr", ":8085", "HTTP listen address")
-		zipkinURL      = fs.String("zipkin-url", "", "Enable Zipkin tracing via HTTP reporter URL e.g. http://localhost:9411/api/v2/spans")
-		zipkinBridge   = fs.Bool("zipkin-ot-bridge", true, "Use Zipkin OpenTracing bridge instead of native implementation")
-		lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
-		appdashAddr    = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
-	)
-	fs.Usage = usageFor(fs, os.Args[0]+" [flags]")
-	_ = fs.Parse(os.Args[1:])
+	config.DefaultConfiguration()
+	arg.MustParse(config.Config)
 
 	// configure logging
-	zapLogger, _ := InitZap(viper.GetString("level"))
+	zapLogger, _ := log.InitZap(viper.GetString("level"), config.Config)
 	defer zapLogger.Sync()
 	stdLog := zap.RedirectStdLog(zapLogger)
 	defer stdLog()
 
+	zipkinTracer := InitZipkinTracer(zapLogger)
+
+	// Determine which OpenTracing tracer to use. We'll pass the tracer to all the
+	// components that use it, as a dependency.
+	tracer, zipkinTracer := InitOpenTracer(zipkinTracer, zapLogger)
+
+	counters := InitMetrics()
+	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
+
+	// configure sql db connection
+	db, err := InitDbConnection(zapLogger)
+	if err != nil {
+		zapLogger.Error(err.Error(), zap.String("Connection Error", "Unable To Connect To Database"))
+	}
+	defer db.Close()
+
+	// connect to rabbitmq
+	amqpproducerconn, amqpconsumerconn := InitQueues(zapLogger)
+
+	httpHandler := InitService(zapLogger, db, amqpproducerconn, amqpconsumerconn, counters, tracer, zipkinTracer)
+
+	g := MountListeners(zapLogger, httpHandler)
+	{
+		// This function just sits and waits for ctrl-C.
+		cancelInterrupt := make(chan struct{})
+		g.Add(func() error {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+			select {
+			case sig := <-c:
+				return fmt.Errorf("received signal %s", sig)
+			case <-cancelInterrupt:
+				return nil
+			}
+		}, func(error) {
+			close(cancelInterrupt)
+		})
+	}
+	zapLogger.Info("exit", zap.Any("exiting process", g.Run()))
+}
+
+func MountListeners(zapLogger *zap.Logger, httpHandler http.Handler) group.Group {
+	// Now we're to the part of the func main where we want to start actually
+	// running things, like servers bound to listeners to receive connections.
+	//
+	// The method is the same for each component: add a new actor to the group
+	// struct, which is a combination of 2 anonymous functions: the first
+	// function actually runs the component, and the second function should
+	// interrupt the first function and cause it to return. It's in these
+	// functions that we actually bind the Go kit server/handler structs to the
+	// concrete transports and run them.
+	//
+	// Putting each component into its own block is mostly for aesthetics: it
+	// clearly demarcates the scope in which each listener/socket may be used.
+	var g group.Group
+	{
+		// The debug listener mounts the http.DefaultServeMux, and serves up
+		// stuff like the Prometheus metrics route, the Go debug and profiling
+		// routes, and so on.
+		debugListener, err := net.Listen("tcp", config.Config.Debug)
+		if err != nil {
+			zapLogger.Info("service connected", zap.String("transport", "debug/HTTP"), zap.String("during", "Listen"), zap.Any("error", err))
+			os.Exit(1)
+		}
+		g.Add(func() error {
+			zapLogger.Info("service connected", zap.String("transport", "debug/HTTP"), zap.String("addr", config.Config.Debug))
+			return http.Serve(debugListener, http.DefaultServeMux)
+		}, func(error) {
+			_ = debugListener.Close()
+		})
+	}
+	{
+		httpListener, err := net.Listen("tcp", config.Config.Http)
+		if err != nil {
+			zapLogger.Info("transport", zap.String("transport", "debug/HTTP"), zap.Any("err", err))
+			os.Exit(1)
+		}
+		g.Add(func() error {
+			zapLogger.Info("transport", zap.String("transport", "/HTTP"), zap.String("addr", config.Config.Http))
+			return http.Serve(httpListener, httpHandler)
+		}, func(error) {
+			_ = httpListener.Close()
+		})
+	}
+	return g
+}
+
+func InitOpenTracer(zipkinTracer *zipkin.Tracer, zapLogger *zap.Logger) (stdopentracing.Tracer, *zipkin.Tracer) {
+	var tracer stdopentracing.Tracer
+	{
+		if config.Config.ZipkinBridge && zipkinTracer != nil {
+			zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
+				zap.String("URL", config.Config.ZipkinUrl))
+			tracer = zipkinot.Wrap(zipkinTracer)
+			zipkinTracer = nil // do not instrument with both native tracer and opentracing bridge
+		} else if config.Config.LightstepToken != "" {
+			zapLogger.Info("Tracer", zap.String("type of tracer", "LightStep"))
+			tracer = lightstep.NewTracer(lightstep.Options{
+				AccessToken: config.Config.LightstepToken,
+			})
+			defer lightstep.FlushLightStepTracer(tracer)
+		} else if config.Config.Appdash != "" {
+			zapLogger.Info("Tracer", zap.String("type of tracer", "Appdash"),
+				zap.String("Appdash", config.Config.Appdash))
+			tracer = appdashot.NewTracer(appdash.NewRemoteCollector(config.Config.Appdash))
+		} else {
+			tracer = stdopentracing.GlobalTracer() // no-op
+		}
+	}
+	return tracer, zipkinTracer
+}
+
+func InitZipkinTracer(zapLogger *zap.Logger) *zipkin.Tracer {
 	var zipkinTracer *zipkin.Tracer
 	{
-		if *zipkinURL != "" {
+		if config.Config.ZipkinUrl != "" {
 			var (
 				err         error
 				hostPort    = ":8080"
-				serviceName = "users_microservice"
-				reporter    = zipkinhttp.NewReporter(*zipkinURL)
+				serviceName = config.Config.ServiceName
+				reporter    = zipkinhttp.NewReporter(config.Config.ZipkinUrl)
 			)
 			defer reporter.Close()
 			zEP, err := zipkin.NewEndpoint(serviceName, hostPort)
@@ -100,111 +200,13 @@ func main() {
 				zapLogger.Error(err.Error())
 				os.Exit(1)
 			}
-			if !(*zipkinBridge) {
+			if !(config.Config.ZipkinBridge) {
 				zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
-					zap.String("URL", *zipkinURL))
+					zap.String("URL", config.Config.ZipkinUrl))
 			}
 		}
 	}
-
-	// Determine which OpenTracing tracer to use. We'll pass the tracer to all the
-	// components that use it, as a dependency.
-	var tracer stdopentracing.Tracer
-	{
-		if *zipkinBridge && zipkinTracer != nil {
-			zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
-				zap.String("URL", *zipkinURL))
-			tracer = zipkinot.Wrap(zipkinTracer)
-			zipkinTracer = nil // do not instrument with both native tracer and opentracing bridge
-		} else if *lightstepToken != "" {
-			zapLogger.Info("Tracer", zap.String("type of tracer", "LightStep"))
-			tracer = lightstep.NewTracer(lightstep.Options{
-				AccessToken: *lightstepToken,
-			})
-			defer lightstep.FlushLightStepTracer(tracer)
-		} else if *appdashAddr != "" {
-			zapLogger.Info("Tracer", zap.String("type of tracer", "Appdash"),
-				zap.String("Appdash", *appdashAddr))
-			tracer = appdashot.NewTracer(appdash.NewRemoteCollector(*appdashAddr))
-		} else {
-			tracer = stdopentracing.GlobalTracer() // no-op
-		}
-	}
-
-	counters := InitMetrics()
-	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
-
-	// configure sql db connection
-	db, err := InitDbConnection(zapLogger)
-	if err != nil {
-		zapLogger.Error(err.Error(), zap.String("Connection Error", "Unable To Connect To Database"))
-	}
-	defer db.Close()
-
-	// connect to rabbitmq
-	amqpproducerconn, amqpconsumerconn := InitQueues(zapLogger)
-
-	httpHandler := InitService(zapLogger, db, amqpproducerconn, amqpconsumerconn, counters, tracer, zipkinTracer)
-
-	// Now we're to the part of the func main where we want to start actually
-	// running things, like servers bound to listeners to receive connections.
-	//
-	// The method is the same for each component: add a new actor to the group
-	// struct, which is a combination of 2 anonymous functions: the first
-	// function actually runs the component, and the second function should
-	// interrupt the first function and cause it to return. It's in these
-	// functions that we actually bind the Go kit server/handler structs to the
-	// concrete transports and run them.
-	//
-	// Putting each component into its own block is mostly for aesthetics: it
-	// clearly demarcates the scope in which each listener/socket may be used.
-	var g group.Group
-	{
-		// The debug listener mounts the http.DefaultServeMux, and serves up
-		// stuff like the Prometheus metrics route, the Go debug and profiling
-		// routes, and so on.
-		debugListener, err := net.Listen("tcp", *debugAddr)
-		if err != nil {
-			zapLogger.Info("service connected", zap.String("transport", "debug/HTTP"), zap.String("during", "Listen"), zap.Any("error", err))
-			os.Exit(1)
-		}
-		g.Add(func() error {
-			zapLogger.Info("service connected", zap.String("transport", "debug/HTTP"), zap.String("addr", *debugAddr))
-			return http.Serve(debugListener, http.DefaultServeMux)
-		}, func(error) {
-			_ = debugListener.Close()
-		})
-	}
-	{
-		httpListener, err := net.Listen("tcp", *httpAddr)
-		if err != nil {
-			zapLogger.Info("transport", zap.String("transport", "debug/HTTP"), zap.Any("err", err))
-			os.Exit(1)
-		}
-		g.Add(func() error {
-			zapLogger.Info("transport", zap.String("transport", "/HTTP"), zap.String("addr", *httpAddr))
-			return http.Serve(httpListener, httpHandler)
-		}, func(error) {
-			_ = httpListener.Close()
-		})
-	}
-	{
-		// This function just sits and waits for ctrl-C.
-		cancelInterrupt := make(chan struct{})
-		g.Add(func() error {
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-			select {
-			case sig := <-c:
-				return fmt.Errorf("received signal %s", sig)
-			case <-cancelInterrupt:
-				return nil
-			}
-		}, func(error) {
-			close(cancelInterrupt)
-		})
-	}
-	zapLogger.Info("exit", zap.Any("exiting process", g.Run()))
+	return zipkinTracer
 }
 
 // InitService builds the layers of the service "onion" from the inside out. First, the
@@ -343,59 +345,11 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 // CreateTablesOrMigrateSchemas creates a given set of tables based on a schema
 // if it does not exist or migrates the table schemas to the latest version
 func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
-	var userTable models.UserTable
-	var teamsTable models.TeamTable
-	var groupTable models.GroupTable
-	userTable.MigrateSchemaOrCreateTable(db, zapLogger)
-	teamsTable.MigrateSchemaOrCreateTable(db, zapLogger)
-	groupTable.MigrateSchemaOrCreateTable(db, zapLogger)
-}
-
-// InitZap configures service level logging and tracing
-func InitZap(logLevel string) (*zap.Logger, error) {
-	level := zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	switch logLevel {
-	case "debug":
-		level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	case "info":
-		level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	case "warn":
-		level = zap.NewAtomicLevelAt(zapcore.WarnLevel)
-	case "error":
-		level = zap.NewAtomicLevelAt(zapcore.ErrorLevel)
-	case "fatal":
-		level = zap.NewAtomicLevelAt(zapcore.FatalLevel)
-	case "panic":
-		level = zap.NewAtomicLevelAt(zapcore.PanicLevel)
-	}
-
-	zapEncoderConfig := zapcore.EncoderConfig{
-		TimeKey:        "ts",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
-
-	zapConfig := zap.Config{
-		Level:       level,
-		Development: config.Config.Development,
-		Sampling: &zap.SamplingConfig{
-			Initial:    100,
-			Thereafter: 100,
-		},
-		Encoding:         "json",
-		EncoderConfig:    zapEncoderConfig,
-		OutputPaths:      []string{"stderr"},
-		ErrorOutputPaths: []string{"stderr"},
-	}
-	return zapConfig.Build()
+	var userTable models.UserORM
+	var teamsTable models.TeamORM
+	var groupTable models.GroupORM
+	db.CreateTable(userTable, teamsTable, groupTable)
+	db.AutoMigrate(userTable, teamsTable, groupTable)
 }
 
 // usageFor is used to parse Operating System Flags defined
