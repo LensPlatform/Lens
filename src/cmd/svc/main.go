@@ -60,11 +60,64 @@ func main() {
 	stdLog := zap.RedirectStdLog(zapLogger)
 	defer stdLog()
 
-	zipkinTracer := InitZipkinTracer(zapLogger)
+	var zipkinTracer *zipkin.Tracer
+	{
+		if config.Config.ZipkinUrl != "" {
+			var (
+				err         error
+				hostPort    = "8085"
+				serviceName = config.Config.Name
+				reporter    = zipkinhttp.NewReporter(config.Config.ZipkinUrl)
+			)
+			defer reporter.Close()
+			zEP, err := zipkin.NewEndpoint(serviceName, hostPort)
+			if err != nil {
+				zapLogger.Error(err.Error())
+				os.Exit(1)
+			}
+
+			sampler, err := zipkin.NewCountingSampler(1)
+			if err != nil {
+				zapLogger.Error(err.Error())
+				os.Exit(1)
+			}
+
+			zipkinTracer, err = zipkin.NewTracer(reporter, zipkin.WithSampler(sampler), zipkin.WithLocalEndpoint(zEP))
+			if err != nil {
+				zapLogger.Error(err.Error())
+				os.Exit(1)
+			}
+			if !(config.Config.ZipkinBridge) {
+				zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
+					zap.String("URL", config.Config.ZipkinUrl))
+			}
+		}
+	}
 
 	// Determine which OpenTracing tracer to use. We'll pass the tracer to all the
 	// components that use it, as a dependency.
-	tracer, zipkinTracer := InitOpenTracer(zipkinTracer, zapLogger)
+	var tracer stdopentracing.Tracer
+	{
+		if config.Config.ZipkinBridge && zipkinTracer != nil {
+			zapLogger.Info("Tracer", zap.String("type of tracer", "zipkin"),
+				zap.String("URL", config.Config.ZipkinUrl))
+			tracer = zipkinot.Wrap(zipkinTracer)
+			zipkinTracer = nil // do not instrument with both native tracer and opentracing bridge
+		} else if config.Config.LightstepToken != "" {
+			zapLogger.Info("Tracer", zap.String("type of tracer", "LightStep"))
+			tracer = lightstep.NewTracer(lightstep.Options{
+				AccessToken: config.Config.LightstepToken,
+			})
+			defer lightstep.FlushLightStepTracer(tracer)
+		} else if config.Config.Appdash != "" {
+			zapLogger.Info("Tracer", zap.String("type of tracer", "Appdash"),
+				zap.String("Appdash", config.Config.Appdash))
+			tracer = appdashot.NewTracer(appdash.NewRemoteCollector(config.Config.Appdash))
+		} else {
+			tracer = stdopentracing.GlobalTracer() // no-op
+		}
+	}
+
 
 	counters := InitMetrics()
 	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
@@ -178,8 +231,8 @@ func InitZipkinTracer(zapLogger *zap.Logger) *zipkin.Tracer {
 		if config.Config.ZipkinUrl != "" {
 			var (
 				err         error
-				hostPort    = ":8080"
-				serviceName = config.Config.ServiceName
+				hostPort    = "8080"
+				serviceName = config.Config.Name
 				reporter    = zipkinhttp.NewReporter(config.Config.ZipkinUrl)
 			)
 			defer reporter.Close()
@@ -348,8 +401,9 @@ func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
 	var userTable models.UserORM
 	var teamsTable models.TeamORM
 	var groupTable models.GroupORM
-	db.CreateTable(userTable, teamsTable, groupTable)
-	db.AutoMigrate(userTable, teamsTable, groupTable)
+	userTable.MigrateSchemaOrCreateTable(db,zapLogger)
+	teamsTable.MigrateSchemaOrCreateTable(db,zapLogger)
+	groupTable.MigrateSchemaOrCreateTable(db,zapLogger)
 }
 
 // usageFor is used to parse Operating System Flags defined

@@ -3,9 +3,10 @@ module github.com/LensPlatform/Lens
 go 1.13
 
 require (
+	cloud.google.com/go v0.37.4 // indirect
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-	github.com/alexflint/go-arg v1.3.0 // indirect
+	github.com/alexflint/go-arg v1.3.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/golang/protobuf v1.4.0-rc.4
@@ -14,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/infobloxopen/atlas-app-toolkit v0.20.0
 	github.com/infobloxopen/protoc-gen-gorm v0.20.0
-	github.com/jinzhu/gorm v1.9.11
+	github.com/jinzhu/gorm v1.9.12
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/lightstep/lightstep-tracer-go v0.18.1

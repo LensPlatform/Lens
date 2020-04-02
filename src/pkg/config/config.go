@@ -14,31 +14,29 @@ type Configuration struct {
 // ServerConfiguration witholds important parameters such as ports and service
 // names
 type ServerConfiguration struct {
-	Environment    string `arg:"Environment"`
 	Port           string `arg:"env:SERVER_PORT"`
 	Name           string `arg:"env:SERVICE_NAME`
-	Debug          string `arg:"debug_addr"`
-	Http           string `arg:"env:http_addr"`
-	Appdash        string `arg:"env:appdash_addr"`
-	ZipkinUrl      string `arg:"env:zipkin_url"`
-	UseZipkin      bool   `arg:"env:zipkin_use"`
-	Zipkin         string `arg:"env:zipkin_addr"`
-	DbType         string `arg:"env:dbType"`
-	DbAddress      string `arg:"env:dbAddress"`
-	DbName         string `arg:"env:dbName"`
-	DbSettings     string `arg:"env:dbSettings"`
-	Development    bool   `arg:"env:development"`
-	Jwt            string `arg:"env:jwtSecretPassword"`
-	Issuer         string `arg:"env:issuer"`
-	ServiceName    string `arg:"env:serviceName"`
-	ZipkinBridge   bool   `arg:"env:zipkin-ot-bridge"`
-	LightstepToken string `arg:"env:lightstep-token"`
+	Debug          string `arg:"env:DEBUG_ADDR"`
+	Http           string `arg:"env:HTTP_ADDR"`
+	Appdash        string `arg:"env:APPDASH_ADDR"`
+	ZipkinUrl      string `arg:"env:ZIPKIN_URL"`
+	UseZipkin      bool   `arg:"env:ZIPKIN_USE"`
+	Zipkin         string `arg:"env:ZIPKIN_ADDR"`
+	DbType         string `arg:"env:DB_TYPE"`
+	DbAddress      string `arg:"env:DB_ADDRESS"`
+	DbName         string `arg:"env:DB_NAME"`
+	DbSettings     string `arg:"env:DB_SETTINGS"`
+	Development    bool   `arg:"env:DEVELOPMENT"`
+	Jwt            string `arg:"env:JWTSECRETPASSWORD"`
+	Issuer         string `arg:"env:ISSUER"`
+	ZipkinBridge   bool   `arg:"env:ZIPKINBRIDGE"`
+	LightstepToken string `arg:"env:LIGHTSTEP"`
 }
 
 // AmqpConfiguration witholds connections parameters for a
 // rabbitMQ instance
 type AmqpConfiguration struct {
-	ServerUrl string `arg:"env.AMQP_SERVER_URL"`
+	ServerUrl string `arg:"env:AMQP_SERVER_URL"`
 }
 
 // Config shares the global configuration
@@ -63,16 +61,14 @@ const (
 func DefaultConfiguration() {
 	Config = &Configuration{
 		ServerConfiguration: ServerConfiguration{
-			Environment:    "development",
 			Name:           "users_microservice",
 			Port:           "6868",
-			ServiceName:    "users_microservice",
 			Issuer:         "cubeplatform",
-			Jwt:            "lensplatformjwtpassword",
-			Development:    false,
+			Jwt:            "cubeplatformjwtpassword",
+			Development:    true,
 			DbSettings:     "?sslmode=require",
-			DbName:         "users-microservice-db",
-			DbAddress:      "doadmin:x9nec6ffkm1i3187@backend-datastore-do-user-6612421-0.db.ondigitalocean.com:25060/",
+			DbName:         "defaultdb",
+			DbAddress:      "doadmin:oqshd3sto72yyhgq@test-do-user-6612421-0.a.db.ondigitalocean.com:25060/",
 			DbType:         "postgresql://",
 			Zipkin:         ":8080",
 			UseZipkin:      true,

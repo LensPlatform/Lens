@@ -5,11 +5,11 @@ package user
 
 import (
 	fmt "fmt"
-	math "math"
 	proto "github.com/golang/protobuf/proto"
 	_ "github.com/infobloxopen/protoc-gen-gorm/options"
 	_ "github.com/mwitkow/go-proto-validators"
 	github_com_mwitkow_go_proto_validators "github.com/mwitkow/go-proto-validators"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
