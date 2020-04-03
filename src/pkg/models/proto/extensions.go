@@ -20,7 +20,7 @@ func (table UserORM) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logger)
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName))
 	} else {
-		err := db.Table("users_table").CreateTable(&table).Error
+		err := db.CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())
@@ -41,7 +41,7 @@ func (table TeamORM) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logger)
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName))
 	} else {
-		err := db.Table("teams_table").CreateTable(&table).Error
+		err := db.CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())
@@ -62,7 +62,7 @@ func (table GroupORM) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logger
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName))
 	} else {
-		err := db.Table("groups_table").CreateTable(&table).Error
+		err := db.CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())
@@ -83,7 +83,7 @@ func (table AddressORM) MigrateSchemaOrCreateTable(db *gorm.DB, logger *zap.Logg
 		}
 		logger.Info(fmt.Sprintf("Successfully Migrated %s Schema", tableName))
 	} else {
-		err := db.Table("address_table").CreateTable(&table).Error
+		err := db.CreateTable(&table).Error
 		if err != nil {
 			logger.Error(fmt.Sprintf("Cannot Create %s Table", tableName))
 			logger.Error(err.Error())

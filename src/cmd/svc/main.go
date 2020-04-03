@@ -386,7 +386,7 @@ func InitDbConnection(zapLogger *zap.Logger) (*gorm.DB, error) {
 		zapLogger.Error(err.Error())
 		os.Exit(1)
 	}
-
+	db.Set("gorm:table_options", "ENGINE=InnoDB")
 	zapLogger.Info("successfully connected to database")
 	db.SingularTable(true)
 	db.LogMode(false)
