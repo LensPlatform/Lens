@@ -48,7 +48,7 @@ func InitZipkinTracer(zapLogger *zap.Logger) *zipkin.Tracer {
 		if config.Config.ZipkinUrl != "" {
 			var (
 				err         error
-				hostPort    = config.Config.Http
+				hostPort    = "8085"
 				serviceName = config.Config.Name
 				reporter    = zipkinhttp.NewReporter(config.Config.ZipkinUrl)
 			)
