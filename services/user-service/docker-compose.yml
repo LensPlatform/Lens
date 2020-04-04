@@ -71,7 +71,7 @@ services:
     depends_on:
       - storage
 
-  users-microservice-v1:
+  users-svc:
     build:
       context: src
       dockerfile: ./Dockerfile

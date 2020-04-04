@@ -4,10 +4,10 @@
 
 TAG?=latest
 NAME:=users-microservice-v1
-DOCKER_REPOSITORY:=LensPlatform
+DOCKER_REPOSITORY:=cube
 DOCKER_IMAGE_NAME:=$(DOCKER_REPOSITORY)/$(NAME)
 GIT_COMMIT:=$(shell git describe --dirty --always)
-VERSION:=$(shell grep 'VERSION' pkg/version/version.go | awk '{ print $$4 }' | tr -d '"')
+VERSION:=$(shell grep 'VERSION' src/pkg/version/version.go | awk '{ print $$4 }' | tr -d '"')
 
 clean:
 	GO111MODULE= cd src && ./scripts/cleanup.sh && cd .. && go clean -modcache
@@ -17,7 +17,7 @@ format:
 
 start:
 	@echo "starting up services specified in docker-compose"
-	docker-compose up
+	src/scripts/startservice.sh
 
 run:
 	GO111MODULE=on go run -ldflags "-s -w -X github.com/LensPlatform/Lens/src/pkg/version.REVISION=$(GIT_COMMIT)" cmd/svc/* \
@@ -47,6 +47,10 @@ build-charts:
 
 build-container:
 	docker build -t $(DOCKER_IMAGE_NAME):$(VERSION) .
+
+run-container:
+	docker build --tag $(DOCKER_IMAGE_NAME):$(VERSION) ./src
+	docker run --publish  8805:8085 --name bb $(DOCKER_IMAGE_NAME):$(VERSION)
 
 test-container:
 	@docker rm -f podinfo || true
