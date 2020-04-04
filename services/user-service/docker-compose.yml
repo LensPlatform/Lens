@@ -75,7 +75,7 @@ services:
     build:
       context: src
       dockerfile: ./Dockerfile
-    container_name: users_microservice
+    container_name: users-svc
     ports:
       - 8805:8085
       - 8804:8084
@@ -85,8 +85,8 @@ services:
       - monitor-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.users-microservice-v1.rule=Host(`users-microservice-v1.localhost`)"
-      - "traefik.http.routers.users-microservice-v1.entrypoints=web"
+      - "traefik.http.routers.users-svc.rule=Host(`users-svc.localhost`)"
+      - "traefik.http.routers.users-svc.entrypoints=web"
     depends_on:
       - stats
       - queue-ram1

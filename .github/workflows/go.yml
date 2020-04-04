@@ -11,8 +11,11 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    steps:
+    strategy:
+      matrix:
+        go: ['1.13', '1.14']
 
+    steps:
     - name: Set up Go 1.13
       uses: actions/setup-go@v1
       with:
@@ -22,6 +25,9 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
+    - name: format
+        run: gofmt -s -w .
+
     - name: Get dependencies
       run: |
         go get -v -t -d ./...
@@ -29,9 +35,15 @@ jobs:
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure
         fi
-    - name: format
-      run: gofmt -s -w .
+
     - name: Build
       run: go build -v .
-    - name: Test
-      run:  go test -v -race ./...
+
+    - name: Run Tests
+      run:  go test -v -race -coverprofile=coverage.coverprofile -covermode=atomic -tags integration ./...
+
+    - name: Upload coverage
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: coverage.coverprofile

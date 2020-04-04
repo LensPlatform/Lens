@@ -4,15 +4,12 @@ go 1.13
 
 require (
 	github.com/LensPlatform/Lens v0.0.0-20200403075548-c8ac151c0a5f // indirect
-	github.com/alexflint/go-arg v1.3.0 // indirect
 	github.com/go-kit/kit v0.10.0
-	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/golang/protobuf v1.4.0-rc.4
 	github.com/gorilla/mux v1.7.4
 	github.com/infobloxopen/atlas-app-toolkit v0.20.0
 	github.com/infobloxopen/protoc-gen-gorm v0.20.0
 	github.com/jinzhu/gorm v1.9.12
-	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lib/pq v1.3.0
 	github.com/lightstep/lightstep-tracer-go v0.20.0
 	github.com/mwitkow/go-proto-validators v0.3.0

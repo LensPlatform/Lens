@@ -19,6 +19,10 @@ start:
 	@echo "starting up services specified in docker-compose"
 	src/scripts/startservice.sh
 
+start-ignore-old:
+	@echo "starting all services while ignoring data from previous volumes"
+	docker-compose up -d --force-recreate --renew-anon-volumes
+
 run:
 	GO111MODULE=on go run -ldflags "-s -w -X github.com/LensPlatform/Lens/src/pkg/version.REVISION=$(GIT_COMMIT)" cmd/svc/* \
 	--level=debug --grpc-port=9999 --backend-url=https://httpbin.org/status/401 --backend-url=https://httpbin.org/status/500 \

@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/go-playground/validator.v9"
 
-	database "github.com/LensPlatform/Lens/services/user-service/src/internal/database/postgresql"
+	database "github.com/LensPlatform/Lens/services/user-service/src/pkg/database/postgresql"
 	"github.com/LensPlatform/Lens/services/user-service/src/pkg/helper"
 	user_service "github.com/LensPlatform/Lens/services/user-service/src/pkg/models/proto"
 	"github.com/LensPlatform/Lens/services/user-service/src/pkg/queues"
