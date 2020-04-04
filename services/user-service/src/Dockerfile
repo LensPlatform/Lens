@@ -2,7 +2,8 @@ FROM golang
 
 RUN mkdir -p /go/src/github.com/LensPlatform/Lens/src
 
-ENV SERVER_PORT :6868
+# Defining Environment Variables For Service
+ENV SERVER_PORT :8089
 ENV SERVICE_NAME Users_Microservie
 ENV DEBUG_ADDR :8084
 ENV HTTP_ADDR :8085

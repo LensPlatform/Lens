@@ -92,7 +92,7 @@ services:
       - queue-ram1
       - queue-disc1
     volumes:
-      - '.:/go/src/github.com/LensPlatform/Lens'
+      - '.:/go/src/github.com/LensPlatform/Lens/src'
   stats:
     image: bitnami/rabbitmq:3.7
     environment:
