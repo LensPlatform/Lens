@@ -78,7 +78,7 @@ func Init(zapLogger *zap.Logger) (*gorm.DB, error) {
 		zapLogger.Error(err.Error())
 		os.Exit(1)
 	}
-	db.Set("gorm:table_options", "ENGINE=InnoDB")
+	// db.Set("gorm:table_options", "ENGINE=InnoDB")
 	zapLogger.Info("successfully connected to database")
 	db.SingularTable(true)
 	db.LogMode(false)
@@ -90,10 +90,8 @@ func Init(zapLogger *zap.Logger) (*gorm.DB, error) {
 // CreateTablesOrMigrateSchemas creates a given set of tables based on a schema
 // if it does not exist or migrates the table schemas to the latest version
 func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
-	var userTable table.UserORM
-	var teamsTable table.TeamORM
-	var groupTable table.GroupORM
-	userTable.MigrateSchemaOrCreateTable(db,zapLogger)
-	teamsTable.MigrateSchemaOrCreateTable(db,zapLogger)
-	groupTable.MigrateSchemaOrCreateTable(db,zapLogger)
+	db.AutoMigrate(table.TeamORM{},table.UserORM{},table.GroupORM{},table.AddressORM{},table.EducationORM{},
+		table.InterestsORM{},table.SubscriptionsORM{},table.DetailsORM{},table.ExperienceORM{},table.InvestmentORM{},
+		table.SettingsORM{},table.LoginActivityORM{},table.CardORM{},table.NotificationORM{},table.ProfileORM{},
+		table.InvestmentORM{},table.StartupFundingDetailsORM{},table.FundingORM{})
 }
