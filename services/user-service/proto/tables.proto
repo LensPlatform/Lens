@@ -220,6 +220,7 @@ message Pin {
 }
 
 message Privacy {
+    option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
     google.protobuf.Timestamp created_at = 2;
     google.protobuf.Timestamp updated_at = 3;
@@ -246,6 +247,7 @@ message Notification {
 }
 
 message PostAndCommentsPushNotification {
+    option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
     google.protobuf.Timestamp created_at = 2;
     google.protobuf.Timestamp updated_at = 3;
@@ -258,6 +260,7 @@ message PostAndCommentsPushNotification {
 }
 
 message FollowingAndFollowersPushNotification {
+    option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
     google.protobuf.Timestamp created_at = 2;
     google.protobuf.Timestamp updated_at = 3;
@@ -268,6 +271,7 @@ message FollowingAndFollowersPushNotification {
 }
 
 message DirectMessagesPushNotification {
+    option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
     google.protobuf.Timestamp created_at = 2;
     google.protobuf.Timestamp updated_at = 3;
@@ -278,6 +282,7 @@ message DirectMessagesPushNotification {
 }
 
 message EmailAndSmsPushNotification {
+    option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
     google.protobuf.Timestamp created_at = 2;
     google.protobuf.Timestamp updated_at = 3;

@@ -11,6 +11,7 @@ type Configuration struct {
 	AmqpConfiguration
 }
 
+
 // ServerConfiguration witholds important parameters such as ports and service
 // names
 type ServerConfiguration struct {

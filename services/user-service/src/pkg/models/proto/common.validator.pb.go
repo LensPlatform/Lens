@@ -7,8 +7,8 @@ import (
 	fmt "fmt"
 	math "math"
 	proto "github.com/golang/protobuf/proto"
-	_ "github.com/golang/protobuf/ptypes/timestamp"
 	_ "github.com/infobloxopen/protoc-gen-gorm/options"
+	_ "github.com/golang/protobuf/ptypes/timestamp"
 	github_com_mwitkow_go_proto_validators "github.com/mwitkow/go-proto-validators"
 )
 
@@ -86,29 +86,6 @@ func (this *Media) Validate() error {
 	}
 	return nil
 }
-func (this *Interests) Validate() error {
-	for _, item := range this.Topics {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Topics", err)
-			}
-		}
-	}
-	for _, item := range this.Industry {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Industry", err)
-			}
-		}
-	}
-	return nil
-}
-func (this *Topic) Validate() error {
-	return nil
-}
-func (this *Industry) Validate() error {
-	return nil
-}
 func (this *Subscriptions) Validate() error {
 	if this.StartDate != nil {
 		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.StartDate); err != nil {
@@ -135,22 +112,6 @@ func (this *Subscriptions) Validate() error {
 			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
 		}
 	}
-	return nil
-}
-func (this *SkillSet) Validate() error {
-	for _, item := range this.Skills {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Skills", err)
-			}
-		}
-	}
-	return nil
-}
-func (this *Skill) Validate() error {
-	return nil
-}
-func (this *Contact) Validate() error {
 	return nil
 }
 func (this *SocialMedia) Validate() error {

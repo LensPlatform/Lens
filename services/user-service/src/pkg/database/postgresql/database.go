@@ -90,8 +90,9 @@ func Init(zapLogger *zap.Logger) (*gorm.DB, error) {
 // CreateTablesOrMigrateSchemas creates a given set of tables based on a schema
 // if it does not exist or migrates the table schemas to the latest version
 func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
-	db.AutoMigrate(table.TeamORM{},table.UserORM{},table.GroupORM{},table.AddressORM{},table.EducationORM{},
-		table.InterestsORM{},table.SubscriptionsORM{},table.DetailsORM{},table.ExperienceORM{},table.InvestmentORM{},
-		table.SettingsORM{},table.LoginActivityORM{},table.CardORM{},table.NotificationORM{},table.ProfileORM{},
-		table.InvestmentORM{},table.StartupDetail{})
+	db.AutoMigrate(table.AddressORM{}, table.EducationORM{},table.MediaORM{}, table.SubscriptionsORM{}, table.SocialMediaORM{},
+	table.DetailsORM{}, table.ExperienceORM{}, table.InvestmentORM{}, table.UserORM{}, table.ProfileORM{}, table.GroupORM{},
+	table.TeamORM{},table.TeamProfileORM{}, table.InvestorDetailORM{}, table.StartupDetailORM{}, table.SettingsORM{}, table.LoginActivityORM{},
+	table.PaymentsORM{}, table.CardORM{}, table.PinORM{}, table.Privacy{},table.NotificationORM{}, table.PostAndCommentsPushNotificationORM{},
+	table.FollowingAndFollowersPushNotificationORM{}, table.DirectMessagesPushNotificationORM{}, table.EmailAndSmsPushNotificationORM{})
 }

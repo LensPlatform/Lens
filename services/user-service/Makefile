@@ -91,3 +91,5 @@ release:
 swagger:
 	GO111MODULE=on go get github.com/swaggo/swag/cmd/swag
 	cd src/pkg/transport && $$(go env GOPATH)/bin/swag init -g http.go
+
+# log onto the bash shell of a containe docker exec -t -i mycontainer /bin/bash

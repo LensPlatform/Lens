@@ -11,7 +11,7 @@
 // @host localhost:8085
 // @BasePath /
 // @schemes http https
-package main
+package src
 
 import (
 	"flag"

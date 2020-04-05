@@ -4,21 +4,28 @@ go 1.13
 
 require (
 	github.com/LensPlatform/Lens v0.0.0-20200403075548-c8ac151c0a5f // indirect
+	github.com/alexflint/go-arg v1.3.0
+	github.com/cosmtrek/air v1.12.1 // indirect
+	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-kit/kit v0.10.0
 	github.com/golang/protobuf v1.4.0-rc.4
 	github.com/gorilla/mux v1.7.4
+	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/infobloxopen/atlas-app-toolkit v0.20.0
 	github.com/infobloxopen/protoc-gen-gorm v0.20.0
 	github.com/jinzhu/gorm v1.9.12
 	github.com/lib/pq v1.3.0
 	github.com/lightstep/lightstep-tracer-go v0.20.0
+	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mwitkow/go-proto-validators v0.3.0
+	github.com/oklog/oklog v0.3.2
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
 	github.com/openzipkin/zipkin-go v0.2.2
+	github.com/pelletier/go-toml v1.7.0 // indirect
 	github.com/prometheus/client_golang v1.5.1
 	github.com/sony/gobreaker v0.4.1
-	github.com/spf13/viper v1.6.2 // indirect
+	github.com/spf13/viper v1.6.2
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
 	github.com/swaggo/http-swagger v0.0.0-20200308142732-58ac5e232fba
 	github.com/swaggo/swag v1.6.5

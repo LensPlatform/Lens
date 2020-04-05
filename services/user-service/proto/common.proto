@@ -64,27 +64,6 @@ message Media
     google.protobuf.Timestamp updated_at = 8;
 }
 
-message Interests {
-    option (gorm.opts).ormable = true;
-    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
-    // topics is a json string of the following type
-    // [{topic : {topic_type : "Technology", topic_name: "Machine Learning"}}]
-    repeated Topic topics = 2;
-    // industry is a json string of the following type
-    // [{industry : {industry_name : "Technology"}}]
-    repeated Industry industry = 3; // industry is a string comprised of comma separated values
-}
-
-message Topic
-{
-    string TopicName = 1;
-    string TopicType = 2;
-}
-
-message Industry {
-    string IndustryName = 1;
-}
-
 message Subscriptions{
     option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
@@ -97,20 +76,6 @@ message Subscriptions{
     google.protobuf.Timestamp created_at = 8;
     google.protobuf.Timestamp deleted_at = 9;
     google.protobuf.Timestamp updated_at = 10;
-}
-
-message SkillSet{
-    repeated Skill Skills = 1;
-}
-
-message Skill {
-    string Type = 1;
-    string Name = 2;
-}
-
-message Contact {
-    string Email = 1;
-    string PhoneNumber = 2;
 }
 
 message SocialMedia {

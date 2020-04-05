@@ -106,7 +106,7 @@ services:
       - queue-ram1
       - queue-disc1
     volumes:
-      - './:/app'
+      - ./:/go/src/github.com/LensPlatform/Lens/services/user-service
 
   stats:
     image: bitnami/rabbitmq:3.7
