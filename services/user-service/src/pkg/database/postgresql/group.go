@@ -27,11 +27,11 @@ func (db *Database) CreateGroup(group table.GroupORM) error {
 		// check if group exists based on id or group name fields
 		// Note: email and username fields are unique so if a db entity witholds those respective parameters
 		// we know the team already exists
-		if err = tx.Where("Id = ?", foundGroup.Id).Or("GroupName = ?", pbGroup.GroupName).Find(&foundGroup).Error; err != nil {
+		if err = tx.Where("Id = ?", foundGroup.Id).Or("GroupName = ?", pbGroup.Name).Find(&foundGroup).Error; err != nil {
 			return err
 		}
 
-		if foundGroup.GroupName != "" {
+		if foundGroup.Name != "" {
 			return errors.New("Group already exists")
 		}
 
@@ -97,7 +97,7 @@ func (db *Database) DeleteGroup(group table.GroupORM) error {
 		}
 
 		// group exists in the database hence perform deletion
-		if err = tx.Where("name = ?", group.GroupName).Delete(&foundGroup).Error; err != nil {
+		if err = tx.Where("name = ?", group.Name).Delete(&foundGroup).Error; err != nil {
 			return err
 		}
 

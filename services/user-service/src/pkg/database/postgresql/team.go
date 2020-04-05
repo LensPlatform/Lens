@@ -27,11 +27,11 @@ func (db *Database) CreateTeam(team table.TeamORM) error {
 		// check if team exists based on email or teamname fields
 		// Note: email and username fields are unique so if a db entity witholds those respective parameters
 		// we know the team already exists
-		if err = tx.Where("email = ?", pbTeam.TeamEmail).Or("teamName = ?", pbTeam.TeamName).Find(&foundTeam).Error; err != nil {
+		if err = tx.Where("email = ?", pbTeam.Email).Or("teamName = ?", pbTeam.Name).Find(&foundTeam).Error; err != nil {
 			return err
 		}
 
-		if foundTeam.TeamEmail != "" {
+		if foundTeam.Email != "" {
 			return errors.New("team already exists")
 		}
 
@@ -97,7 +97,7 @@ func (db *Database) DeleteTeam(team table.TeamORM) error {
 		}
 
 		// user exists in the database hence perform deletion
-		if err = tx.Where("email = ?", team.TeamEmail).Delete(&foundTeam).Error; err != nil {
+		if err = tx.Where("email = ?", team.Email).Delete(&foundTeam).Error; err != nil {
 			return err
 		}
 

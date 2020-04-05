@@ -11,8 +11,8 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
     ports:
-      - "80:80"
-      - "8080:8080"
+      - "81:81"
+      - "8081:8081"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
@@ -71,11 +71,29 @@ services:
     depends_on:
       - storage
 
-  users-svc:
+  #users-v1:
+  #  build:
+  #    context: src
+  #    dockerfile: ./Dockerfile
+  #  container_name: users-v1
+  #  ports:
+  #    - 8805:8085
+  #    - 8804:8084
+  ##    - 8081:8081
+  #  restart: always
+  #  networks:
+  #    - monitor-net
+  #  depends_on:
+  #    - stats
+  #    - queue-ram1
+  #    - queue-disc1
+  #  volumes:
+  #    - './:/go/src/github.com/LensPlatform/Lens'
+  users:
     build:
-      context: src
+      context: .
       dockerfile: ./Dockerfile
-    container_name: users-svc
+    container_name: users
     ports:
       - 8805:8085
       - 8804:8084
@@ -83,16 +101,13 @@ services:
     restart: always
     networks:
       - monitor-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.users-svc.rule=Host(`users-svc.localhost`)"
-      - "traefik.http.routers.users-svc.entrypoints=web"
     depends_on:
       - stats
       - queue-ram1
       - queue-disc1
     volumes:
-      - '.:/go/src/github.com/LensPlatform/Lens/src'
+      - './:/app'
+
   stats:
     image: bitnami/rabbitmq:3.7
     environment:
@@ -269,4 +284,6 @@ volumes:
   rabbitmqdisc1_data:
     driver: local
   rabbitmqram1_data:
+    driver: local
+  code_volume:
     driver: local

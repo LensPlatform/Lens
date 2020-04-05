@@ -1,0 +1,17 @@
+FROM golang:alpine as builder
+
+RUN mkdir /build
+ADD . /build/
+
+WORKDIR /build/src/cmd/svc
+
+# Use compile time parameters in the build stage to
+# instruct go compiler to statically link the runtime libraries
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o main .
+
+FROM scratch
+
+COPY --from=builder /build/src/cmd/svc /app/
+WORKDIR /app
+
+CMD ["./main"]

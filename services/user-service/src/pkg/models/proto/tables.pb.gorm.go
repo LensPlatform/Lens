@@ -6,6 +6,7 @@ package user
 import context "context"
 import fmt "fmt"
 import strings "strings"
+import time "time"
 
 import auth1 "github.com/infobloxopen/atlas-app-toolkit/auth"
 import errors1 "github.com/infobloxopen/protoc-gen-gorm/errors"
@@ -13,9 +14,11 @@ import field_mask1 "google.golang.org/genproto/protobuf/field_mask"
 import gorm1 "github.com/jinzhu/gorm"
 import gorm2 "github.com/infobloxopen/atlas-app-toolkit/gorm"
 import pq1 "github.com/lib/pq"
+import ptypes1 "github.com/golang/protobuf/ptypes"
 
 import math "math"
 import _ "github.com/mwitkow/go-proto-validators"
+import _ "github.com/golang/protobuf/ptypes/timestamp"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = fmt.Errorf
@@ -23,28 +26,32 @@ var _ = math.Inf
 
 type UserORM struct {
 	AccountID            string
+	AdminGroupId         *int32
+	AdminIdTeamId        *int32
+	AdvisorsTeamId       *int32
 	Age                  int32
-	Bio                  string
 	BirthDate            string
-	CreatedAt            string
-	DeletedAt            string
+	CreatedAt            *time.Time
+	DeletedAt            *time.Time
 	Email                string
 	FirstName            string
 	Gender               string
-	Headline             string
+	GroupMembersGroupId  *int32
 	Id                   int32 `gorm:"type:integer;primary_key"`
 	Intent               string
+	IsActive             bool
 	Languages            string
 	LastName             string
+	MembersTeamId        *int32
 	Password             string
 	PasswordConfirmed    string
-	PhoneNumber          uint32
-	Profile              *ProfileORM `gorm:"foreignkey:ProfileId;association_foreignkey:Id"`
-	ProfileId            *int32
+	PhoneNumber          string
+	ProfileId            *ProfileORM `gorm:"foreignkey:ProfileId;association_foreignkey:Id"`
 	ResetToken           string
-	ResetTokenExpiration string
-	UpdatedAt            string
-	UserAccountType      int32
+	ResetTokenExpiration *time.Time
+	SubscriptionsId      []*SubscriptionsORM `gorm:"foreignkey:UserId;association_foreignkey:Id"`
+	UpdatedAt            *time.Time
+	UserAccountType      string
 	UserName             string
 }
 
@@ -64,9 +71,28 @@ func (m *User) ToORM(ctx context.Context) (UserORM, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
-	to.UserAccountType = int32(m.UserAccountType)
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	to.UserAccountType = m.UserAccountType
 	to.FirstName = m.FirstName
 	to.LastName = m.LastName
 	to.UserName = m.UserName
@@ -77,20 +103,35 @@ func (m *User) ToORM(ctx context.Context) (UserORM, error) {
 	to.Age = m.Age
 	to.BirthDate = m.BirthDate
 	to.PhoneNumber = m.PhoneNumber
-	to.Bio = m.Bio
-	to.Headline = m.Headline
-	to.Intent = m.Intent
 	to.Email = m.Email
-	if m.Profile != nil {
-		tempProfile, err := m.Profile.ToORM(ctx)
+	to.Intent = m.Intent
+	if m.ProfileId != nil {
+		tempProfileId, err := m.ProfileId.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Profile = &tempProfile
+		to.ProfileId = &tempProfileId
 	}
-	to.DeletedAt = m.DeletedAt
 	to.ResetToken = m.ResetToken
-	to.ResetTokenExpiration = m.ResetTokenExpiration
+	if m.ResetTokenExpiration != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.ResetTokenExpiration); err != nil {
+			return to, err
+		}
+		to.ResetTokenExpiration = &t
+	}
+	for _, v := range m.SubscriptionsId {
+		if v != nil {
+			if tempSubscriptionsId, cErr := v.ToORM(ctx); cErr == nil {
+				to.SubscriptionsId = append(to.SubscriptionsId, &tempSubscriptionsId)
+			} else {
+				return to, cErr
+			}
+		} else {
+			to.SubscriptionsId = append(to.SubscriptionsId, nil)
+		}
+	}
+	to.IsActive = m.IsActive
 	accountID, err := auth1.GetAccountID(ctx, nil)
 	if err != nil {
 		return to, err
@@ -113,9 +154,22 @@ func (m *UserORM) ToPB(ctx context.Context) (User, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
-	to.UserAccountType = AccountType(m.UserAccountType)
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	to.UserAccountType = m.UserAccountType
 	to.FirstName = m.FirstName
 	to.LastName = m.LastName
 	to.UserName = m.UserName
@@ -126,20 +180,33 @@ func (m *UserORM) ToPB(ctx context.Context) (User, error) {
 	to.Age = m.Age
 	to.BirthDate = m.BirthDate
 	to.PhoneNumber = m.PhoneNumber
-	to.Bio = m.Bio
-	to.Headline = m.Headline
-	to.Intent = m.Intent
 	to.Email = m.Email
-	if m.Profile != nil {
-		tempProfile, err := m.Profile.ToPB(ctx)
+	to.Intent = m.Intent
+	if m.ProfileId != nil {
+		tempProfileId, err := m.ProfileId.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Profile = &tempProfile
+		to.ProfileId = &tempProfileId
 	}
-	to.DeletedAt = m.DeletedAt
 	to.ResetToken = m.ResetToken
-	to.ResetTokenExpiration = m.ResetTokenExpiration
+	if m.ResetTokenExpiration != nil {
+		if to.ResetTokenExpiration, err = ptypes1.TimestampProto(*m.ResetTokenExpiration); err != nil {
+			return to, err
+		}
+	}
+	for _, v := range m.SubscriptionsId {
+		if v != nil {
+			if tempSubscriptionsId, cErr := v.ToPB(ctx); cErr == nil {
+				to.SubscriptionsId = append(to.SubscriptionsId, &tempSubscriptionsId)
+			} else {
+				return to, cErr
+			}
+		} else {
+			to.SubscriptionsId = append(to.SubscriptionsId, nil)
+		}
+	}
+	to.IsActive = m.IsActive
 	if posthook, ok := interface{}(m).(UserWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
@@ -170,26 +237,23 @@ type UserWithAfterToPB interface {
 }
 
 type ProfileORM struct {
-	Address                  *AddressORM `gorm:"foreignkey:AddressProfileId;association_foreignkey:Id"`
-	CreatedAt                string
-	DeletedAt                string
-	Education                []*EducationORM  `gorm:"foreignkey:ProfileId;association_foreignkey:Id"`
-	Experience               []*ExperienceORM `gorm:"foreignkey:ProfileId;association_foreignkey:Id"`
-	FundingId                *int32
-	GroupId                  *int32
-	Id                       int32                      `gorm:"type:integer;primary_key"`
-	InvestmentDetails        *InvestorFundingDetailsORM `gorm:"foreignkey:InvestorFundingDetailsId;association_foreignkey:Id"`
-	InvestorFundingDetailsId *uint32
-	Languages                pq1.StringArray `gorm:"type:text[]"`
-	PlacesLivedIn            []*AddressORM   `gorm:"foreignkey:PlacesLivedInProfileId;association_foreignkey:Id"`
-	ProfileType              int32
-	Settings                 *SettingsORM `gorm:"foreignkey:SettingsId;association_foreignkey:Id"`
-	SettingsId               *int32
-	Subscription             []*SubscriptionsORM `gorm:"foreignkey:ProfileId;association_foreignkey:Id"`
-	Title                    string
-	UpdatedAt                string
-	UserGroups               []*GroupORM `gorm:"foreignkey:Id;association_foreignkey:Id;many2many:profile_groups;jointable_foreignkey:profile_id;association_jointable_foreignkey:group_id"`
-	UserTeams                []*TeamORM  `gorm:"foreignkey:Id;association_foreignkey:Id;many2many:profile_teams;jointable_foreignkey:profile_id;association_jointable_foreignkey:team_id"`
+	AddressId     *AddressORM `gorm:"foreignkey:AddressId;association_foreignkey:Id"`
+	AvatarUrl     string
+	Bio           string
+	CreatedAt     *time.Time
+	DeletedAt     *time.Time
+	EducationId   []*EducationORM  `gorm:"foreignkey:ProfileId;association_foreignkey:Id"`
+	ExperienceId  []*ExperienceORM `gorm:"foreignkey:Id;association_foreignkey:Id;many2many:profile_experiences;jointable_foreignkey:profile_id;association_jointable_foreignkey:experience_id"`
+	GroupId       []*GroupORM      `gorm:"foreignkey:Id;association_foreignkey:Id;many2many:profile_groups;jointable_foreignkey:profile_id;association_jointable_foreignkey:group_id"`
+	Id            int32            `gorm:"type:integer;primary_key"`
+	Nationality   string
+	ProfileType   string
+	SettingsId    *SettingsORM    `gorm:"foreignkey:SettingsId;association_foreignkey:Id"`
+	Skills        pq1.StringArray `gorm:"type:text[]"`
+	SocialMedia   *SocialMediaORM `gorm:"foreignkey:SocialMediaId;association_foreignkey:Id"`
+	SocialMediaId *int32
+	TeamId        *TeamORM `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
+	UpdatedAt     *time.Time
 }
 
 // TableName overrides the default tablename generated by GORM
@@ -208,103 +272,96 @@ func (m *Profile) ToORM(ctx context.Context) (ProfileORM, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
-	to.Title = m.Title
-	for _, v := range m.Experience {
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	to.Bio = m.Bio
+	for _, v := range m.ExperienceId {
 		if v != nil {
-			if tempExperience, cErr := v.ToORM(ctx); cErr == nil {
-				to.Experience = append(to.Experience, &tempExperience)
+			if tempExperienceId, cErr := v.ToORM(ctx); cErr == nil {
+				to.ExperienceId = append(to.ExperienceId, &tempExperienceId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Experience = append(to.Experience, nil)
+			to.ExperienceId = append(to.ExperienceId, nil)
 		}
 	}
-	if m.Address != nil {
-		tempAddress, err := m.Address.ToORM(ctx)
+	if m.AddressId != nil {
+		tempAddressId, err := m.AddressId.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Address = &tempAddress
+		to.AddressId = &tempAddressId
 	}
-	for _, v := range m.Education {
+	for _, v := range m.EducationId {
 		if v != nil {
-			if tempEducation, cErr := v.ToORM(ctx); cErr == nil {
-				to.Education = append(to.Education, &tempEducation)
+			if tempEducationId, cErr := v.ToORM(ctx); cErr == nil {
+				to.EducationId = append(to.EducationId, &tempEducationId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Education = append(to.Education, nil)
+			to.EducationId = append(to.EducationId, nil)
 		}
 	}
-	// Repeated type []*Skill is not an ORMable message type
-	for _, v := range m.UserTeams {
-		if v != nil {
-			if tempUserTeams, cErr := v.ToORM(ctx); cErr == nil {
-				to.UserTeams = append(to.UserTeams, &tempUserTeams)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.UserTeams = append(to.UserTeams, nil)
-		}
+	if m.Skills != nil {
+		to.Skills = make(pq1.StringArray, len(m.Skills))
+		copy(to.Skills, m.Skills)
 	}
-	for _, v := range m.UserGroups {
-		if v != nil {
-			if tempUserGroups, cErr := v.ToORM(ctx); cErr == nil {
-				to.UserGroups = append(to.UserGroups, &tempUserGroups)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.UserGroups = append(to.UserGroups, nil)
-		}
-	}
-	if m.Settings != nil {
-		tempSettings, err := m.Settings.ToORM(ctx)
+	if m.TeamId != nil {
+		tempTeamId, err := m.TeamId.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Settings = &tempSettings
+		to.TeamId = &tempTeamId
 	}
-	for _, v := range m.Subscription {
+	for _, v := range m.GroupId {
 		if v != nil {
-			if tempSubscription, cErr := v.ToORM(ctx); cErr == nil {
-				to.Subscription = append(to.Subscription, &tempSubscription)
+			if tempGroupId, cErr := v.ToORM(ctx); cErr == nil {
+				to.GroupId = append(to.GroupId, &tempGroupId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Subscription = append(to.Subscription, nil)
+			to.GroupId = append(to.GroupId, nil)
 		}
 	}
-	if m.InvestmentDetails != nil {
-		tempInvestmentDetails, err := m.InvestmentDetails.ToORM(ctx)
+	if m.SocialMedia != nil {
+		tempSocialMedia, err := m.SocialMedia.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.InvestmentDetails = &tempInvestmentDetails
+		to.SocialMedia = &tempSocialMedia
 	}
-	to.ProfileType = int32(m.ProfileType)
-	for _, v := range m.PlacesLivedIn {
-		if v != nil {
-			if tempPlacesLivedIn, cErr := v.ToORM(ctx); cErr == nil {
-				to.PlacesLivedIn = append(to.PlacesLivedIn, &tempPlacesLivedIn)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.PlacesLivedIn = append(to.PlacesLivedIn, nil)
+	if m.SettingsId != nil {
+		tempSettingsId, err := m.SettingsId.ToORM(ctx)
+		if err != nil {
+			return to, err
 		}
+		to.SettingsId = &tempSettingsId
 	}
-	if m.Languages != nil {
-		to.Languages = make(pq1.StringArray, len(m.Languages))
-		copy(to.Languages, m.Languages)
-	}
-	to.DeletedAt = m.DeletedAt
+	to.ProfileType = m.ProfileType
+	to.Nationality = m.Nationality
+	to.AvatarUrl = m.AvatarUrl
 	if posthook, ok := interface{}(m).(ProfileWithAfterToORM); ok {
 		err = posthook.AfterToORM(ctx, &to)
 	}
@@ -322,103 +379,90 @@ func (m *ProfileORM) ToPB(ctx context.Context) (Profile, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
-	to.Title = m.Title
-	for _, v := range m.Experience {
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	to.Bio = m.Bio
+	for _, v := range m.ExperienceId {
 		if v != nil {
-			if tempExperience, cErr := v.ToPB(ctx); cErr == nil {
-				to.Experience = append(to.Experience, &tempExperience)
+			if tempExperienceId, cErr := v.ToPB(ctx); cErr == nil {
+				to.ExperienceId = append(to.ExperienceId, &tempExperienceId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Experience = append(to.Experience, nil)
+			to.ExperienceId = append(to.ExperienceId, nil)
 		}
 	}
-	if m.Address != nil {
-		tempAddress, err := m.Address.ToPB(ctx)
+	if m.AddressId != nil {
+		tempAddressId, err := m.AddressId.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Address = &tempAddress
+		to.AddressId = &tempAddressId
 	}
-	for _, v := range m.Education {
+	for _, v := range m.EducationId {
 		if v != nil {
-			if tempEducation, cErr := v.ToPB(ctx); cErr == nil {
-				to.Education = append(to.Education, &tempEducation)
+			if tempEducationId, cErr := v.ToPB(ctx); cErr == nil {
+				to.EducationId = append(to.EducationId, &tempEducationId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Education = append(to.Education, nil)
+			to.EducationId = append(to.EducationId, nil)
 		}
 	}
-	// Repeated type []*Skill is not an ORMable message type
-	for _, v := range m.UserTeams {
-		if v != nil {
-			if tempUserTeams, cErr := v.ToPB(ctx); cErr == nil {
-				to.UserTeams = append(to.UserTeams, &tempUserTeams)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.UserTeams = append(to.UserTeams, nil)
-		}
+	if m.Skills != nil {
+		to.Skills = make(pq1.StringArray, len(m.Skills))
+		copy(to.Skills, m.Skills)
 	}
-	for _, v := range m.UserGroups {
-		if v != nil {
-			if tempUserGroups, cErr := v.ToPB(ctx); cErr == nil {
-				to.UserGroups = append(to.UserGroups, &tempUserGroups)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.UserGroups = append(to.UserGroups, nil)
-		}
-	}
-	if m.Settings != nil {
-		tempSettings, err := m.Settings.ToPB(ctx)
+	if m.TeamId != nil {
+		tempTeamId, err := m.TeamId.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Settings = &tempSettings
+		to.TeamId = &tempTeamId
 	}
-	for _, v := range m.Subscription {
+	for _, v := range m.GroupId {
 		if v != nil {
-			if tempSubscription, cErr := v.ToPB(ctx); cErr == nil {
-				to.Subscription = append(to.Subscription, &tempSubscription)
+			if tempGroupId, cErr := v.ToPB(ctx); cErr == nil {
+				to.GroupId = append(to.GroupId, &tempGroupId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Subscription = append(to.Subscription, nil)
+			to.GroupId = append(to.GroupId, nil)
 		}
 	}
-	if m.InvestmentDetails != nil {
-		tempInvestmentDetails, err := m.InvestmentDetails.ToPB(ctx)
+	if m.SocialMedia != nil {
+		tempSocialMedia, err := m.SocialMedia.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.InvestmentDetails = &tempInvestmentDetails
+		to.SocialMedia = &tempSocialMedia
 	}
-	to.ProfileType = AccountType(m.ProfileType)
-	for _, v := range m.PlacesLivedIn {
-		if v != nil {
-			if tempPlacesLivedIn, cErr := v.ToPB(ctx); cErr == nil {
-				to.PlacesLivedIn = append(to.PlacesLivedIn, &tempPlacesLivedIn)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.PlacesLivedIn = append(to.PlacesLivedIn, nil)
+	if m.SettingsId != nil {
+		tempSettingsId, err := m.SettingsId.ToPB(ctx)
+		if err != nil {
+			return to, err
 		}
+		to.SettingsId = &tempSettingsId
 	}
-	if m.Languages != nil {
-		to.Languages = make(pq1.StringArray, len(m.Languages))
-		copy(to.Languages, m.Languages)
-	}
-	to.DeletedAt = m.DeletedAt
+	to.ProfileType = m.ProfileType
+	to.Nationality = m.Nationality
+	to.AvatarUrl = m.AvatarUrl
 	if posthook, ok := interface{}(m).(ProfileWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
@@ -449,17 +493,19 @@ type ProfileWithAfterToPB interface {
 }
 
 type GroupORM struct {
-	CreatedAt            string
-	DeletedAt            string
-	GroupBio             string
-	GroupMembers         []*ProfileORM `gorm:"foreignkey:GroupId;association_foreignkey:Id"`
-	GroupName            string
-	GroupType            int32
-	Id                   int32 `gorm:"type:integer;primary_key"`
-	NumberOfGroupMembers int32
-	Tags                 pq1.StringArray `gorm:"type:text[]"`
-	Type                 string
-	UpdatedtAt           string
+	Admin           *UserORM `gorm:"foreignkey:AdminGroupId;association_foreignkey:Id"`
+	AvatarUrl       string
+	Bio             string
+	CreatedAt       *time.Time
+	DeletedAt       *time.Time
+	GroupMembers    []*UserORM `gorm:"foreignkey:GroupMembersGroupId;association_foreignkey:Id"`
+	Id              int32      `gorm:"type:integer;primary_key"`
+	IsPublic        bool
+	Name            string
+	NumberOfMembers int32
+	Tags            pq1.StringArray `gorm:"type:text[]"`
+	Type            string
+	UpdatedAt       *time.Time
 }
 
 // TableName overrides the default tablename generated by GORM
@@ -478,16 +524,35 @@ func (m *Group) ToORM(ctx context.Context) (GroupORM, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedtAt = m.UpdatedtAt
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
 	to.Type = m.Type
-	to.GroupName = m.GroupName
-	to.GroupBio = m.GroupBio
+	to.Name = m.Name
+	to.Bio = m.Bio
 	if m.Tags != nil {
 		to.Tags = make(pq1.StringArray, len(m.Tags))
 		copy(to.Tags, m.Tags)
 	}
-	to.NumberOfGroupMembers = m.NumberOfGroupMembers
+	to.NumberOfMembers = m.NumberOfMembers
 	for _, v := range m.GroupMembers {
 		if v != nil {
 			if tempGroupMembers, cErr := v.ToORM(ctx); cErr == nil {
@@ -499,8 +564,15 @@ func (m *Group) ToORM(ctx context.Context) (GroupORM, error) {
 			to.GroupMembers = append(to.GroupMembers, nil)
 		}
 	}
-	to.GroupType = int32(m.GroupType)
-	to.DeletedAt = m.DeletedAt
+	to.IsPublic = m.IsPublic
+	if m.Admin != nil {
+		tempAdmin, err := m.Admin.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.Admin = &tempAdmin
+	}
+	to.AvatarUrl = m.AvatarUrl
 	if posthook, ok := interface{}(m).(GroupWithAfterToORM); ok {
 		err = posthook.AfterToORM(ctx, &to)
 	}
@@ -518,16 +590,29 @@ func (m *GroupORM) ToPB(ctx context.Context) (Group, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedtAt = m.UpdatedtAt
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
 	to.Type = m.Type
-	to.GroupName = m.GroupName
-	to.GroupBio = m.GroupBio
+	to.Name = m.Name
+	to.Bio = m.Bio
 	if m.Tags != nil {
 		to.Tags = make(pq1.StringArray, len(m.Tags))
 		copy(to.Tags, m.Tags)
 	}
-	to.NumberOfGroupMembers = m.NumberOfGroupMembers
+	to.NumberOfMembers = m.NumberOfMembers
 	for _, v := range m.GroupMembers {
 		if v != nil {
 			if tempGroupMembers, cErr := v.ToPB(ctx); cErr == nil {
@@ -539,8 +624,15 @@ func (m *GroupORM) ToPB(ctx context.Context) (Group, error) {
 			to.GroupMembers = append(to.GroupMembers, nil)
 		}
 	}
-	to.GroupType = AccountType(m.GroupType)
-	to.DeletedAt = m.DeletedAt
+	to.IsPublic = m.IsPublic
+	if m.Admin != nil {
+		tempAdmin, err := m.Admin.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.Admin = &tempAdmin
+	}
+	to.AvatarUrl = m.AvatarUrl
 	if posthook, ok := interface{}(m).(GroupWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
@@ -571,25 +663,30 @@ type GroupWithAfterToPB interface {
 }
 
 type TeamORM struct {
-	Advisors           []*ProfileORM `gorm:"foreignkey:Id;association_foreignkey:Id;many2many:team_advisors;jointable_foreignkey:team_id;association_jointable_foreignkey:profile_id"`
-	CreatedAt          string
-	DeletedAt          string
-	FoundedDate        string
-	GroupType          int32
-	Headquarters       *AddressORM `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
-	Id                 int32       `gorm:"type:integer;primary_key"`
-	IndustryOfInterest string
-	InvestorDetails    *InvestorFundingDetailsORM `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
-	NumberOfEmployees  int32
-	StartupDetails     *StartupFundingDetailsORM `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
-	Subscriptions      []*SubscriptionsORM       `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
-	Tags               pq1.StringArray           `gorm:"type:text[]"`
-	TeamBio            string
-	TeamEmail          string
-	TeamMembers        []*ProfileORM `gorm:"foreignkey:Id;association_foreignkey:Id;many2many:team_team_members;jointable_foreignkey:team_id;association_jointable_foreignkey:profile_id"`
-	TeamName           string
-	Type               string
-	UpdatedtAt         string
+	AdminId              *UserORM   `gorm:"foreignkey:AdminIdTeamId;association_foreignkey:Id"`
+	Advisors             []*UserORM `gorm:"foreignkey:AdvisorsTeamId;association_foreignkey:Id"`
+	Bio                  string
+	CreatedAt            *time.Time
+	DeletedAt            *time.Time
+	Email                string
+	FoundedDate          *time.Time
+	HeadquartersId       *AddressORM `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
+	Id                   int32       `gorm:"type:integer;primary_key"`
+	Industry             string
+	IsActive             bool
+	Members              []*UserORM `gorm:"foreignkey:MembersTeamId;association_foreignkey:Id"`
+	Name                 string
+	NumberOfEmployees    int32
+	Password             string
+	PhoneNumber          string
+	ResetToken           string
+	ResetTokenExpiration *time.Time
+	SocialMedia          *SocialMediaORM     `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
+	Subscriptions        []*SubscriptionsORM `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
+	Tags                 pq1.StringArray     `gorm:"type:text[]"`
+	TeamProfileId        *TeamProfileORM     `gorm:"foreignkey:TeamId;association_foreignkey:Id"`
+	Type                 string
+	UpdatedAt            *time.Time
 }
 
 // TableName overrides the default tablename generated by GORM
@@ -608,35 +705,59 @@ func (m *Team) ToORM(ctx context.Context) (TeamORM, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedtAt = m.UpdatedtAt
-	to.TeamName = m.TeamName
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	to.Name = m.Name
 	if m.Tags != nil {
 		to.Tags = make(pq1.StringArray, len(m.Tags))
 		copy(to.Tags, m.Tags)
 	}
-	to.TeamEmail = m.TeamEmail
+	to.Email = m.Email
 	to.Type = m.Type
-	to.TeamBio = m.TeamBio
-	to.IndustryOfInterest = m.IndustryOfInterest
-	to.FoundedDate = m.FoundedDate
+	to.Industry = m.Industry
+	if m.FoundedDate != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.FoundedDate); err != nil {
+			return to, err
+		}
+		to.FoundedDate = &t
+	}
 	to.NumberOfEmployees = m.NumberOfEmployees
-	if m.Headquarters != nil {
-		tempHeadquarters, err := m.Headquarters.ToORM(ctx)
+	if m.HeadquartersId != nil {
+		tempHeadquartersId, err := m.HeadquartersId.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Headquarters = &tempHeadquarters
+		to.HeadquartersId = &tempHeadquartersId
 	}
-	for _, v := range m.TeamMembers {
+	for _, v := range m.Members {
 		if v != nil {
-			if tempTeamMembers, cErr := v.ToORM(ctx); cErr == nil {
-				to.TeamMembers = append(to.TeamMembers, &tempTeamMembers)
+			if tempMembers, cErr := v.ToORM(ctx); cErr == nil {
+				to.Members = append(to.Members, &tempMembers)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.TeamMembers = append(to.TeamMembers, nil)
+			to.Members = append(to.Members, nil)
 		}
 	}
 	for _, v := range m.Advisors {
@@ -650,22 +771,22 @@ func (m *Team) ToORM(ctx context.Context) (TeamORM, error) {
 			to.Advisors = append(to.Advisors, nil)
 		}
 	}
-	if m.InvestorDetails != nil {
-		tempInvestorDetails, err := m.InvestorDetails.ToORM(ctx)
+	if m.SocialMedia != nil {
+		tempSocialMedia, err := m.SocialMedia.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.InvestorDetails = &tempInvestorDetails
+		to.SocialMedia = &tempSocialMedia
 	}
-	if m.StartupDetails != nil {
-		tempStartupDetails, err := m.StartupDetails.ToORM(ctx)
+	to.PhoneNumber = m.PhoneNumber
+	to.Password = m.Password
+	if m.TeamProfileId != nil {
+		tempTeamProfileId, err := m.TeamProfileId.ToORM(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.StartupDetails = &tempStartupDetails
+		to.TeamProfileId = &tempTeamProfileId
 	}
-	to.GroupType = int32(m.GroupType)
-	to.DeletedAt = m.DeletedAt
 	for _, v := range m.Subscriptions {
 		if v != nil {
 			if tempSubscriptions, cErr := v.ToORM(ctx); cErr == nil {
@@ -677,6 +798,23 @@ func (m *Team) ToORM(ctx context.Context) (TeamORM, error) {
 			to.Subscriptions = append(to.Subscriptions, nil)
 		}
 	}
+	to.IsActive = m.IsActive
+	to.ResetToken = m.ResetToken
+	if m.ResetTokenExpiration != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.ResetTokenExpiration); err != nil {
+			return to, err
+		}
+		to.ResetTokenExpiration = &t
+	}
+	if m.AdminId != nil {
+		tempAdminId, err := m.AdminId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.AdminId = &tempAdminId
+	}
+	to.Bio = m.Bio
 	if posthook, ok := interface{}(m).(TeamWithAfterToORM); ok {
 		err = posthook.AfterToORM(ctx, &to)
 	}
@@ -694,35 +832,51 @@ func (m *TeamORM) ToPB(ctx context.Context) (Team, error) {
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedtAt = m.UpdatedtAt
-	to.TeamName = m.TeamName
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	to.Name = m.Name
 	if m.Tags != nil {
 		to.Tags = make(pq1.StringArray, len(m.Tags))
 		copy(to.Tags, m.Tags)
 	}
-	to.TeamEmail = m.TeamEmail
+	to.Email = m.Email
 	to.Type = m.Type
-	to.TeamBio = m.TeamBio
-	to.IndustryOfInterest = m.IndustryOfInterest
-	to.FoundedDate = m.FoundedDate
+	to.Industry = m.Industry
+	if m.FoundedDate != nil {
+		if to.FoundedDate, err = ptypes1.TimestampProto(*m.FoundedDate); err != nil {
+			return to, err
+		}
+	}
 	to.NumberOfEmployees = m.NumberOfEmployees
-	if m.Headquarters != nil {
-		tempHeadquarters, err := m.Headquarters.ToPB(ctx)
+	if m.HeadquartersId != nil {
+		tempHeadquartersId, err := m.HeadquartersId.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.Headquarters = &tempHeadquarters
+		to.HeadquartersId = &tempHeadquartersId
 	}
-	for _, v := range m.TeamMembers {
+	for _, v := range m.Members {
 		if v != nil {
-			if tempTeamMembers, cErr := v.ToPB(ctx); cErr == nil {
-				to.TeamMembers = append(to.TeamMembers, &tempTeamMembers)
+			if tempMembers, cErr := v.ToPB(ctx); cErr == nil {
+				to.Members = append(to.Members, &tempMembers)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.TeamMembers = append(to.TeamMembers, nil)
+			to.Members = append(to.Members, nil)
 		}
 	}
 	for _, v := range m.Advisors {
@@ -736,22 +890,22 @@ func (m *TeamORM) ToPB(ctx context.Context) (Team, error) {
 			to.Advisors = append(to.Advisors, nil)
 		}
 	}
-	if m.InvestorDetails != nil {
-		tempInvestorDetails, err := m.InvestorDetails.ToPB(ctx)
+	if m.SocialMedia != nil {
+		tempSocialMedia, err := m.SocialMedia.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.InvestorDetails = &tempInvestorDetails
+		to.SocialMedia = &tempSocialMedia
 	}
-	if m.StartupDetails != nil {
-		tempStartupDetails, err := m.StartupDetails.ToPB(ctx)
+	to.PhoneNumber = m.PhoneNumber
+	to.Password = m.Password
+	if m.TeamProfileId != nil {
+		tempTeamProfileId, err := m.TeamProfileId.ToPB(ctx)
 		if err != nil {
 			return to, err
 		}
-		to.StartupDetails = &tempStartupDetails
+		to.TeamProfileId = &tempTeamProfileId
 	}
-	to.GroupType = AccountType(m.GroupType)
-	to.DeletedAt = m.DeletedAt
 	for _, v := range m.Subscriptions {
 		if v != nil {
 			if tempSubscriptions, cErr := v.ToPB(ctx); cErr == nil {
@@ -763,6 +917,21 @@ func (m *TeamORM) ToPB(ctx context.Context) (Team, error) {
 			to.Subscriptions = append(to.Subscriptions, nil)
 		}
 	}
+	to.IsActive = m.IsActive
+	to.ResetToken = m.ResetToken
+	if m.ResetTokenExpiration != nil {
+		if to.ResetTokenExpiration, err = ptypes1.TimestampProto(*m.ResetTokenExpiration); err != nil {
+			return to, err
+		}
+	}
+	if m.AdminId != nil {
+		tempAdminId, err := m.AdminId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.AdminId = &tempAdminId
+	}
+	to.Bio = m.Bio
 	if posthook, ok := interface{}(m).(TeamWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
@@ -792,54 +961,240 @@ type TeamWithAfterToPB interface {
 	AfterToPB(context.Context, *Team) error
 }
 
-type InvestorFundingDetailsORM struct {
-	CreatedAt           string
+type TeamProfileORM struct {
+	CreatedAt        *time.Time
+	DeletedAt        *time.Time
+	Id               int32              `gorm:"type:integer;primary_key"`
+	InvestorDetailId *InvestorDetailORM `gorm:"foreignkey:TeamProfileId;association_foreignkey:Id"`
+	MediaId          *MediaORM          `gorm:"foreignkey:TeamProfileId;association_foreignkey:Id"`
+	SettingsId       *SettingsORM       `gorm:"foreignkey:TeamProfileId;association_foreignkey:Id"`
+	StartupDetailId  *StartupDetailORM  `gorm:"foreignkey:TeamProfileId;association_foreignkey:Id"`
+	TeamId           *int32
+	UpdatedAt        *time.Time
+}
+
+// TableName overrides the default tablename generated by GORM
+func (TeamProfileORM) TableName() string {
+	return "team_profiles"
+}
+
+// ToORM runs the BeforeToORM hook if present, converts the fields of this
+// object to ORM format, runs the AfterToORM hook, then returns the ORM object
+func (m *TeamProfile) ToORM(ctx context.Context) (TeamProfileORM, error) {
+	to := TeamProfileORM{}
+	var err error
+	if prehook, ok := interface{}(m).(TeamProfileWithBeforeToORM); ok {
+		if err = prehook.BeforeToORM(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	if m.SettingsId != nil {
+		tempSettingsId, err := m.SettingsId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.SettingsId = &tempSettingsId
+	}
+	if m.InvestorDetailId != nil {
+		tempInvestorDetailId, err := m.InvestorDetailId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.InvestorDetailId = &tempInvestorDetailId
+	}
+	if m.StartupDetailId != nil {
+		tempStartupDetailId, err := m.StartupDetailId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.StartupDetailId = &tempStartupDetailId
+	}
+	if m.MediaId != nil {
+		tempMediaId, err := m.MediaId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.MediaId = &tempMediaId
+	}
+	if posthook, ok := interface{}(m).(TeamProfileWithAfterToORM); ok {
+		err = posthook.AfterToORM(ctx, &to)
+	}
+	return to, err
+}
+
+// ToPB runs the BeforeToPB hook if present, converts the fields of this
+// object to PB format, runs the AfterToPB hook, then returns the PB object
+func (m *TeamProfileORM) ToPB(ctx context.Context) (TeamProfile, error) {
+	to := TeamProfile{}
+	var err error
+	if prehook, ok := interface{}(m).(TeamProfileWithBeforeToPB); ok {
+		if err = prehook.BeforeToPB(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.SettingsId != nil {
+		tempSettingsId, err := m.SettingsId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.SettingsId = &tempSettingsId
+	}
+	if m.InvestorDetailId != nil {
+		tempInvestorDetailId, err := m.InvestorDetailId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.InvestorDetailId = &tempInvestorDetailId
+	}
+	if m.StartupDetailId != nil {
+		tempStartupDetailId, err := m.StartupDetailId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.StartupDetailId = &tempStartupDetailId
+	}
+	if m.MediaId != nil {
+		tempMediaId, err := m.MediaId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.MediaId = &tempMediaId
+	}
+	if posthook, ok := interface{}(m).(TeamProfileWithAfterToPB); ok {
+		err = posthook.AfterToPB(ctx, &to)
+	}
+	return to, err
+}
+
+// The following are interfaces you can implement for special behavior during ORM/PB conversions
+// of type TeamProfile the arg will be the target, the caller the one being converted from
+
+// TeamProfileBeforeToORM called before default ToORM code
+type TeamProfileWithBeforeToORM interface {
+	BeforeToORM(context.Context, *TeamProfileORM) error
+}
+
+// TeamProfileAfterToORM called after default ToORM code
+type TeamProfileWithAfterToORM interface {
+	AfterToORM(context.Context, *TeamProfileORM) error
+}
+
+// TeamProfileBeforeToPB called before default ToPB code
+type TeamProfileWithBeforeToPB interface {
+	BeforeToPB(context.Context, *TeamProfile) error
+}
+
+// TeamProfileAfterToPB called after default ToPB code
+type TeamProfileWithAfterToPB interface {
+	AfterToPB(context.Context, *TeamProfile) error
+}
+
+type InvestorDetailORM struct {
+	CreatedAt           *time.Time
+	DeletedAt           *time.Time
 	Id                  uint32 `gorm:"type:integer;primary_key"`
 	InvestmentStage     int32
-	Investments         []*InvestmentORM `gorm:"foreignkey:InvestorFundingDetailsId;association_foreignkey:Id"`
+	InvestmentsId       []*InvestmentORM `gorm:"foreignkey:InvestorDetailId;association_foreignkey:Id"`
 	InvestorType        int32
 	NumberOfExits       int32
 	NumberOfFunds       int32
-	NumberOfinvestments int32
-	TeamId              *int32
-	UpdatedAt           string
+	NumberOfInvestments int32
+	TeamProfileId       *int32
+	UpdatedAt           *time.Time
 }
 
 // TableName overrides the default tablename generated by GORM
-func (InvestorFundingDetailsORM) TableName() string {
-	return "investor_funding_details"
+func (InvestorDetailORM) TableName() string {
+	return "investor_details"
 }
 
 // ToORM runs the BeforeToORM hook if present, converts the fields of this
 // object to ORM format, runs the AfterToORM hook, then returns the ORM object
-func (m *InvestorFundingDetails) ToORM(ctx context.Context) (InvestorFundingDetailsORM, error) {
-	to := InvestorFundingDetailsORM{}
+func (m *InvestorDetail) ToORM(ctx context.Context) (InvestorDetailORM, error) {
+	to := InvestorDetailORM{}
 	var err error
-	if prehook, ok := interface{}(m).(InvestorFundingDetailsWithBeforeToORM); ok {
+	if prehook, ok := interface{}(m).(InvestorDetailWithBeforeToORM); ok {
 		if err = prehook.BeforeToORM(ctx, &to); err != nil {
 			return to, err
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
 	to.InvestorType = int32(m.InvestorType)
 	to.InvestmentStage = int32(m.InvestmentStage)
 	to.NumberOfExits = m.NumberOfExits
-	to.NumberOfinvestments = m.NumberOfinvestments
+	to.NumberOfInvestments = m.NumberOfInvestments
 	to.NumberOfFunds = m.NumberOfFunds
-	for _, v := range m.Investments {
+	for _, v := range m.InvestmentsId {
 		if v != nil {
-			if tempInvestments, cErr := v.ToORM(ctx); cErr == nil {
-				to.Investments = append(to.Investments, &tempInvestments)
+			if tempInvestmentsId, cErr := v.ToORM(ctx); cErr == nil {
+				to.InvestmentsId = append(to.InvestmentsId, &tempInvestmentsId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Investments = append(to.Investments, nil)
+			to.InvestmentsId = append(to.InvestmentsId, nil)
 		}
 	}
-	if posthook, ok := interface{}(m).(InvestorFundingDetailsWithAfterToORM); ok {
+	if posthook, ok := interface{}(m).(InvestorDetailWithAfterToORM); ok {
 		err = posthook.AfterToORM(ctx, &to)
 	}
 	return to, err
@@ -847,104 +1202,139 @@ func (m *InvestorFundingDetails) ToORM(ctx context.Context) (InvestorFundingDeta
 
 // ToPB runs the BeforeToPB hook if present, converts the fields of this
 // object to PB format, runs the AfterToPB hook, then returns the PB object
-func (m *InvestorFundingDetailsORM) ToPB(ctx context.Context) (InvestorFundingDetails, error) {
-	to := InvestorFundingDetails{}
+func (m *InvestorDetailORM) ToPB(ctx context.Context) (InvestorDetail, error) {
+	to := InvestorDetail{}
 	var err error
-	if prehook, ok := interface{}(m).(InvestorFundingDetailsWithBeforeToPB); ok {
+	if prehook, ok := interface{}(m).(InvestorDetailWithBeforeToPB); ok {
 		if err = prehook.BeforeToPB(ctx, &to); err != nil {
 			return to, err
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
 	to.InvestorType = InvestorType(m.InvestorType)
 	to.InvestmentStage = InvestmentStage(m.InvestmentStage)
 	to.NumberOfExits = m.NumberOfExits
-	to.NumberOfinvestments = m.NumberOfinvestments
+	to.NumberOfInvestments = m.NumberOfInvestments
 	to.NumberOfFunds = m.NumberOfFunds
-	for _, v := range m.Investments {
+	for _, v := range m.InvestmentsId {
 		if v != nil {
-			if tempInvestments, cErr := v.ToPB(ctx); cErr == nil {
-				to.Investments = append(to.Investments, &tempInvestments)
+			if tempInvestmentsId, cErr := v.ToPB(ctx); cErr == nil {
+				to.InvestmentsId = append(to.InvestmentsId, &tempInvestmentsId)
 			} else {
 				return to, cErr
 			}
 		} else {
-			to.Investments = append(to.Investments, nil)
+			to.InvestmentsId = append(to.InvestmentsId, nil)
 		}
 	}
-	if posthook, ok := interface{}(m).(InvestorFundingDetailsWithAfterToPB); ok {
+	if posthook, ok := interface{}(m).(InvestorDetailWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
 	return to, err
 }
 
 // The following are interfaces you can implement for special behavior during ORM/PB conversions
-// of type InvestorFundingDetails the arg will be the target, the caller the one being converted from
+// of type InvestorDetail the arg will be the target, the caller the one being converted from
 
-// InvestorFundingDetailsBeforeToORM called before default ToORM code
-type InvestorFundingDetailsWithBeforeToORM interface {
-	BeforeToORM(context.Context, *InvestorFundingDetailsORM) error
+// InvestorDetailBeforeToORM called before default ToORM code
+type InvestorDetailWithBeforeToORM interface {
+	BeforeToORM(context.Context, *InvestorDetailORM) error
 }
 
-// InvestorFundingDetailsAfterToORM called after default ToORM code
-type InvestorFundingDetailsWithAfterToORM interface {
-	AfterToORM(context.Context, *InvestorFundingDetailsORM) error
+// InvestorDetailAfterToORM called after default ToORM code
+type InvestorDetailWithAfterToORM interface {
+	AfterToORM(context.Context, *InvestorDetailORM) error
 }
 
-// InvestorFundingDetailsBeforeToPB called before default ToPB code
-type InvestorFundingDetailsWithBeforeToPB interface {
-	BeforeToPB(context.Context, *InvestorFundingDetails) error
+// InvestorDetailBeforeToPB called before default ToPB code
+type InvestorDetailWithBeforeToPB interface {
+	BeforeToPB(context.Context, *InvestorDetail) error
 }
 
-// InvestorFundingDetailsAfterToPB called after default ToPB code
-type InvestorFundingDetailsWithAfterToPB interface {
-	AfterToPB(context.Context, *InvestorFundingDetails) error
+// InvestorDetailAfterToPB called after default ToPB code
+type InvestorDetailWithAfterToPB interface {
+	AfterToPB(context.Context, *InvestorDetail) error
 }
 
-type StartupFundingDetailsORM struct {
-	CompanyDetails *DetailsORM `gorm:"foreignkey:StartupFundingDetailsId;association_foreignkey:Id"`
-	CreatedAt      string
-	Funding        *FundingORM `gorm:"foreignkey:StartupFundingDetailsId;association_foreignkey:Id"`
-	Id             uint32      `gorm:"type:integer;primary_key"`
-	TeamId         *int32
-	UpdatedAt      string
+type StartupDetailORM struct {
+	CompanyName        string
+	CreatedAt          *time.Time
+	DeletedAt          *time.Time
+	FundingType        string
+	Id                 uint32 `gorm:"type:integer;primary_key"`
+	LatestRound        string
+	LatestRoundEndDate *time.Time
+	LatestRoundFunding int32
+	TeamProfileId      *int32
+	TotalFunding       int32
+	UpdatedAt          *time.Time
 }
 
 // TableName overrides the default tablename generated by GORM
-func (StartupFundingDetailsORM) TableName() string {
-	return "startup_funding_details"
+func (StartupDetailORM) TableName() string {
+	return "startup_details"
 }
 
 // ToORM runs the BeforeToORM hook if present, converts the fields of this
 // object to ORM format, runs the AfterToORM hook, then returns the ORM object
-func (m *StartupFundingDetails) ToORM(ctx context.Context) (StartupFundingDetailsORM, error) {
-	to := StartupFundingDetailsORM{}
+func (m *StartupDetail) ToORM(ctx context.Context) (StartupDetailORM, error) {
+	to := StartupDetailORM{}
 	var err error
-	if prehook, ok := interface{}(m).(StartupFundingDetailsWithBeforeToORM); ok {
+	if prehook, ok := interface{}(m).(StartupDetailWithBeforeToORM); ok {
 		if err = prehook.BeforeToORM(ctx, &to); err != nil {
 			return to, err
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
-	if m.Funding != nil {
-		tempFunding, err := m.Funding.ToORM(ctx)
-		if err != nil {
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
 			return to, err
 		}
-		to.Funding = &tempFunding
+		to.CreatedAt = &t
 	}
-	if m.CompanyDetails != nil {
-		tempCompanyDetails, err := m.CompanyDetails.ToORM(ctx)
-		if err != nil {
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
 			return to, err
 		}
-		to.CompanyDetails = &tempCompanyDetails
+		to.DeletedAt = &t
 	}
-	if posthook, ok := interface{}(m).(StartupFundingDetailsWithAfterToORM); ok {
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	to.TotalFunding = m.TotalFunding
+	to.LatestRoundFunding = m.LatestRoundFunding
+	to.LatestRound = m.LatestRound
+	if m.LatestRoundEndDate != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.LatestRoundEndDate); err != nil {
+			return to, err
+		}
+		to.LatestRoundEndDate = &t
+	}
+	to.FundingType = m.FundingType
+	to.CompanyName = m.CompanyName
+	if posthook, ok := interface{}(m).(StartupDetailWithAfterToORM); ok {
 		err = posthook.AfterToORM(ctx, &to)
 	}
 	return to, err
@@ -952,106 +1342,141 @@ func (m *StartupFundingDetails) ToORM(ctx context.Context) (StartupFundingDetail
 
 // ToPB runs the BeforeToPB hook if present, converts the fields of this
 // object to PB format, runs the AfterToPB hook, then returns the PB object
-func (m *StartupFundingDetailsORM) ToPB(ctx context.Context) (StartupFundingDetails, error) {
-	to := StartupFundingDetails{}
+func (m *StartupDetailORM) ToPB(ctx context.Context) (StartupDetail, error) {
+	to := StartupDetail{}
 	var err error
-	if prehook, ok := interface{}(m).(StartupFundingDetailsWithBeforeToPB); ok {
+	if prehook, ok := interface{}(m).(StartupDetailWithBeforeToPB); ok {
 		if err = prehook.BeforeToPB(ctx, &to); err != nil {
 			return to, err
 		}
 	}
 	to.Id = m.Id
-	to.CreatedAt = m.CreatedAt
-	to.UpdatedAt = m.UpdatedAt
-	if m.Funding != nil {
-		tempFunding, err := m.Funding.ToPB(ctx)
-		if err != nil {
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
 			return to, err
 		}
-		to.Funding = &tempFunding
 	}
-	if m.CompanyDetails != nil {
-		tempCompanyDetails, err := m.CompanyDetails.ToPB(ctx)
-		if err != nil {
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
 			return to, err
 		}
-		to.CompanyDetails = &tempCompanyDetails
 	}
-	if posthook, ok := interface{}(m).(StartupFundingDetailsWithAfterToPB); ok {
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	to.TotalFunding = m.TotalFunding
+	to.LatestRoundFunding = m.LatestRoundFunding
+	to.LatestRound = m.LatestRound
+	if m.LatestRoundEndDate != nil {
+		if to.LatestRoundEndDate, err = ptypes1.TimestampProto(*m.LatestRoundEndDate); err != nil {
+			return to, err
+		}
+	}
+	to.FundingType = m.FundingType
+	to.CompanyName = m.CompanyName
+	if posthook, ok := interface{}(m).(StartupDetailWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
 	return to, err
 }
 
 // The following are interfaces you can implement for special behavior during ORM/PB conversions
-// of type StartupFundingDetails the arg will be the target, the caller the one being converted from
+// of type StartupDetail the arg will be the target, the caller the one being converted from
 
-// StartupFundingDetailsBeforeToORM called before default ToORM code
-type StartupFundingDetailsWithBeforeToORM interface {
-	BeforeToORM(context.Context, *StartupFundingDetailsORM) error
+// StartupDetailBeforeToORM called before default ToORM code
+type StartupDetailWithBeforeToORM interface {
+	BeforeToORM(context.Context, *StartupDetailORM) error
 }
 
-// StartupFundingDetailsAfterToORM called after default ToORM code
-type StartupFundingDetailsWithAfterToORM interface {
-	AfterToORM(context.Context, *StartupFundingDetailsORM) error
+// StartupDetailAfterToORM called after default ToORM code
+type StartupDetailWithAfterToORM interface {
+	AfterToORM(context.Context, *StartupDetailORM) error
 }
 
-// StartupFundingDetailsBeforeToPB called before default ToPB code
-type StartupFundingDetailsWithBeforeToPB interface {
-	BeforeToPB(context.Context, *StartupFundingDetails) error
+// StartupDetailBeforeToPB called before default ToPB code
+type StartupDetailWithBeforeToPB interface {
+	BeforeToPB(context.Context, *StartupDetail) error
 }
 
-// StartupFundingDetailsAfterToPB called after default ToPB code
-type StartupFundingDetailsWithAfterToPB interface {
-	AfterToPB(context.Context, *StartupFundingDetails) error
+// StartupDetailAfterToPB called after default ToPB code
+type StartupDetailWithAfterToPB interface {
+	AfterToPB(context.Context, *StartupDetail) error
 }
 
-type FundingORM struct {
-	Id                      int32 `gorm:"type:integer;primary_key"`
-	InvestmentStage         string
-	InvestorType            string
-	Investors               []*ProfileORM `gorm:"foreignkey:FundingId;association_foreignkey:Id"`
-	LatestRound             string
-	LatestRoundDate         string
-	LatestRoundFunding      int32
-	StartupFundingDetailsId *uint32
-	TotalFunding            int32
+type SettingsORM struct {
+	CreatedAt         *time.Time
+	DeletedAt         *time.Time
+	Id                int32 `gorm:"type:integer;primary_key"`
+	LastLogin         *time.Time
+	LastLoginLocation string
+	NotificationId    *NotificationORM `gorm:"foreignkey:SettingsId;association_foreignkey:Id"`
+	PaymentId         *PaymentsORM     `gorm:"foreignkey:SettingsId;association_foreignkey:Id"`
+	TeamProfileId     *int32
+	UpdatedAt         *time.Time
 }
 
 // TableName overrides the default tablename generated by GORM
-func (FundingORM) TableName() string {
-	return "fundings"
+func (SettingsORM) TableName() string {
+	return "settings"
 }
 
 // ToORM runs the BeforeToORM hook if present, converts the fields of this
 // object to ORM format, runs the AfterToORM hook, then returns the ORM object
-func (m *Funding) ToORM(ctx context.Context) (FundingORM, error) {
-	to := FundingORM{}
+func (m *Settings) ToORM(ctx context.Context) (SettingsORM, error) {
+	to := SettingsORM{}
 	var err error
-	if prehook, ok := interface{}(m).(FundingWithBeforeToORM); ok {
+	if prehook, ok := interface{}(m).(SettingsWithBeforeToORM); ok {
 		if err = prehook.BeforeToORM(ctx, &to); err != nil {
 			return to, err
 		}
 	}
 	to.Id = m.Id
-	to.TotalFunding = m.TotalFunding
-	to.LatestRound = m.LatestRound
-	to.LatestRoundDate = m.LatestRoundDate
-	to.LatestRoundFunding = m.LatestRoundFunding
-	for _, v := range m.Investors {
-		if v != nil {
-			if tempInvestors, cErr := v.ToORM(ctx); cErr == nil {
-				to.Investors = append(to.Investors, &tempInvestors)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.Investors = append(to.Investors, nil)
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
 		}
+		to.CreatedAt = &t
 	}
-	to.InvestorType = m.InvestorType
-	to.InvestmentStage = m.InvestmentStage
-	if posthook, ok := interface{}(m).(FundingWithAfterToORM); ok {
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.LastLogin != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.LastLogin); err != nil {
+			return to, err
+		}
+		to.LastLogin = &t
+	}
+	to.LastLoginLocation = m.LastLoginLocation
+	if m.NotificationId != nil {
+		tempNotificationId, err := m.NotificationId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.NotificationId = &tempNotificationId
+	}
+	if m.PaymentId != nil {
+		tempPaymentId, err := m.PaymentId.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.PaymentId = &tempPaymentId
+	}
+	if posthook, ok := interface{}(m).(SettingsWithAfterToORM); ok {
 		err = posthook.AfterToORM(ctx, &to)
 	}
 	return to, err
@@ -1059,59 +1484,703 @@ func (m *Funding) ToORM(ctx context.Context) (FundingORM, error) {
 
 // ToPB runs the BeforeToPB hook if present, converts the fields of this
 // object to PB format, runs the AfterToPB hook, then returns the PB object
-func (m *FundingORM) ToPB(ctx context.Context) (Funding, error) {
-	to := Funding{}
+func (m *SettingsORM) ToPB(ctx context.Context) (Settings, error) {
+	to := Settings{}
 	var err error
-	if prehook, ok := interface{}(m).(FundingWithBeforeToPB); ok {
+	if prehook, ok := interface{}(m).(SettingsWithBeforeToPB); ok {
 		if err = prehook.BeforeToPB(ctx, &to); err != nil {
 			return to, err
 		}
 	}
 	to.Id = m.Id
-	to.TotalFunding = m.TotalFunding
-	to.LatestRound = m.LatestRound
-	to.LatestRoundDate = m.LatestRoundDate
-	to.LatestRoundFunding = m.LatestRoundFunding
-	for _, v := range m.Investors {
-		if v != nil {
-			if tempInvestors, cErr := v.ToPB(ctx); cErr == nil {
-				to.Investors = append(to.Investors, &tempInvestors)
-			} else {
-				return to, cErr
-			}
-		} else {
-			to.Investors = append(to.Investors, nil)
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
 		}
 	}
-	to.InvestorType = m.InvestorType
-	to.InvestmentStage = m.InvestmentStage
-	if posthook, ok := interface{}(m).(FundingWithAfterToPB); ok {
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.LastLogin != nil {
+		if to.LastLogin, err = ptypes1.TimestampProto(*m.LastLogin); err != nil {
+			return to, err
+		}
+	}
+	to.LastLoginLocation = m.LastLoginLocation
+	if m.NotificationId != nil {
+		tempNotificationId, err := m.NotificationId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.NotificationId = &tempNotificationId
+	}
+	if m.PaymentId != nil {
+		tempPaymentId, err := m.PaymentId.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.PaymentId = &tempPaymentId
+	}
+	if posthook, ok := interface{}(m).(SettingsWithAfterToPB); ok {
 		err = posthook.AfterToPB(ctx, &to)
 	}
 	return to, err
 }
 
 // The following are interfaces you can implement for special behavior during ORM/PB conversions
-// of type Funding the arg will be the target, the caller the one being converted from
+// of type Settings the arg will be the target, the caller the one being converted from
 
-// FundingBeforeToORM called before default ToORM code
-type FundingWithBeforeToORM interface {
-	BeforeToORM(context.Context, *FundingORM) error
+// SettingsBeforeToORM called before default ToORM code
+type SettingsWithBeforeToORM interface {
+	BeforeToORM(context.Context, *SettingsORM) error
 }
 
-// FundingAfterToORM called after default ToORM code
-type FundingWithAfterToORM interface {
-	AfterToORM(context.Context, *FundingORM) error
+// SettingsAfterToORM called after default ToORM code
+type SettingsWithAfterToORM interface {
+	AfterToORM(context.Context, *SettingsORM) error
 }
 
-// FundingBeforeToPB called before default ToPB code
-type FundingWithBeforeToPB interface {
-	BeforeToPB(context.Context, *Funding) error
+// SettingsBeforeToPB called before default ToPB code
+type SettingsWithBeforeToPB interface {
+	BeforeToPB(context.Context, *Settings) error
 }
 
-// FundingAfterToPB called after default ToPB code
-type FundingWithAfterToPB interface {
-	AfterToPB(context.Context, *Funding) error
+// SettingsAfterToPB called after default ToPB code
+type SettingsWithAfterToPB interface {
+	AfterToPB(context.Context, *Settings) error
+}
+
+type LoginActivityORM struct {
+	Date     string
+	Id       int32       `gorm:"type:integer;primary_key"`
+	Location *AddressORM `gorm:"foreignkey:LoginActivityId;association_foreignkey:Id"`
+}
+
+// TableName overrides the default tablename generated by GORM
+func (LoginActivityORM) TableName() string {
+	return "login_activities"
+}
+
+// ToORM runs the BeforeToORM hook if present, converts the fields of this
+// object to ORM format, runs the AfterToORM hook, then returns the ORM object
+func (m *LoginActivity) ToORM(ctx context.Context) (LoginActivityORM, error) {
+	to := LoginActivityORM{}
+	var err error
+	if prehook, ok := interface{}(m).(LoginActivityWithBeforeToORM); ok {
+		if err = prehook.BeforeToORM(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.Location != nil {
+		tempLocation, err := m.Location.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.Location = &tempLocation
+	}
+	to.Date = m.Date
+	if posthook, ok := interface{}(m).(LoginActivityWithAfterToORM); ok {
+		err = posthook.AfterToORM(ctx, &to)
+	}
+	return to, err
+}
+
+// ToPB runs the BeforeToPB hook if present, converts the fields of this
+// object to PB format, runs the AfterToPB hook, then returns the PB object
+func (m *LoginActivityORM) ToPB(ctx context.Context) (LoginActivity, error) {
+	to := LoginActivity{}
+	var err error
+	if prehook, ok := interface{}(m).(LoginActivityWithBeforeToPB); ok {
+		if err = prehook.BeforeToPB(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.Location != nil {
+		tempLocation, err := m.Location.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.Location = &tempLocation
+	}
+	to.Date = m.Date
+	if posthook, ok := interface{}(m).(LoginActivityWithAfterToPB); ok {
+		err = posthook.AfterToPB(ctx, &to)
+	}
+	return to, err
+}
+
+// The following are interfaces you can implement for special behavior during ORM/PB conversions
+// of type LoginActivity the arg will be the target, the caller the one being converted from
+
+// LoginActivityBeforeToORM called before default ToORM code
+type LoginActivityWithBeforeToORM interface {
+	BeforeToORM(context.Context, *LoginActivityORM) error
+}
+
+// LoginActivityAfterToORM called after default ToORM code
+type LoginActivityWithAfterToORM interface {
+	AfterToORM(context.Context, *LoginActivityORM) error
+}
+
+// LoginActivityBeforeToPB called before default ToPB code
+type LoginActivityWithBeforeToPB interface {
+	BeforeToPB(context.Context, *LoginActivity) error
+}
+
+// LoginActivityAfterToPB called after default ToPB code
+type LoginActivityWithAfterToPB interface {
+	AfterToPB(context.Context, *LoginActivity) error
+}
+
+type PaymentsORM struct {
+	CreatedAt  *time.Time
+	CreditCard *CardORM `gorm:"foreignkey:CreditCardPaymentsId;association_foreignkey:Id"`
+	DebitCard  *CardORM `gorm:"foreignkey:DebitCardPaymentsId;association_foreignkey:Id"`
+	DeletedAt  *time.Time
+	Id         int32 `gorm:"type:integer;primary_key"`
+	LastLogin  *time.Time
+	Pin        *PinORM `gorm:"foreignkey:PaymentsId;association_foreignkey:Id"`
+	SettingsId *int32
+	UpdatedAt  *time.Time
+}
+
+// TableName overrides the default tablename generated by GORM
+func (PaymentsORM) TableName() string {
+	return "payments"
+}
+
+// ToORM runs the BeforeToORM hook if present, converts the fields of this
+// object to ORM format, runs the AfterToORM hook, then returns the ORM object
+func (m *Payments) ToORM(ctx context.Context) (PaymentsORM, error) {
+	to := PaymentsORM{}
+	var err error
+	if prehook, ok := interface{}(m).(PaymentsWithBeforeToORM); ok {
+		if err = prehook.BeforeToORM(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.LastLogin != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.LastLogin); err != nil {
+			return to, err
+		}
+		to.LastLogin = &t
+	}
+	if m.DebitCard != nil {
+		tempDebitCard, err := m.DebitCard.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.DebitCard = &tempDebitCard
+	}
+	if m.CreditCard != nil {
+		tempCreditCard, err := m.CreditCard.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.CreditCard = &tempCreditCard
+	}
+	if m.Pin != nil {
+		tempPin, err := m.Pin.ToORM(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.Pin = &tempPin
+	}
+	if posthook, ok := interface{}(m).(PaymentsWithAfterToORM); ok {
+		err = posthook.AfterToORM(ctx, &to)
+	}
+	return to, err
+}
+
+// ToPB runs the BeforeToPB hook if present, converts the fields of this
+// object to PB format, runs the AfterToPB hook, then returns the PB object
+func (m *PaymentsORM) ToPB(ctx context.Context) (Payments, error) {
+	to := Payments{}
+	var err error
+	if prehook, ok := interface{}(m).(PaymentsWithBeforeToPB); ok {
+		if err = prehook.BeforeToPB(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.LastLogin != nil {
+		if to.LastLogin, err = ptypes1.TimestampProto(*m.LastLogin); err != nil {
+			return to, err
+		}
+	}
+	if m.DebitCard != nil {
+		tempDebitCard, err := m.DebitCard.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.DebitCard = &tempDebitCard
+	}
+	if m.CreditCard != nil {
+		tempCreditCard, err := m.CreditCard.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.CreditCard = &tempCreditCard
+	}
+	if m.Pin != nil {
+		tempPin, err := m.Pin.ToPB(ctx)
+		if err != nil {
+			return to, err
+		}
+		to.Pin = &tempPin
+	}
+	if posthook, ok := interface{}(m).(PaymentsWithAfterToPB); ok {
+		err = posthook.AfterToPB(ctx, &to)
+	}
+	return to, err
+}
+
+// The following are interfaces you can implement for special behavior during ORM/PB conversions
+// of type Payments the arg will be the target, the caller the one being converted from
+
+// PaymentsBeforeToORM called before default ToORM code
+type PaymentsWithBeforeToORM interface {
+	BeforeToORM(context.Context, *PaymentsORM) error
+}
+
+// PaymentsAfterToORM called after default ToORM code
+type PaymentsWithAfterToORM interface {
+	AfterToORM(context.Context, *PaymentsORM) error
+}
+
+// PaymentsBeforeToPB called before default ToPB code
+type PaymentsWithBeforeToPB interface {
+	BeforeToPB(context.Context, *Payments) error
+}
+
+// PaymentsAfterToPB called after default ToPB code
+type PaymentsWithAfterToPB interface {
+	AfterToPB(context.Context, *Payments) error
+}
+
+type CardORM struct {
+	Address              string
+	CardNumber           string
+	CardZipCode          string
+	City                 string
+	CreatedAt            *time.Time
+	CreditCardPaymentsId *int32
+	DebitCardPaymentsId  *int32
+	DeletedAt            *time.Time
+	FullName             string
+	Id                   int32 `gorm:"type:integer;primary_key"`
+	LastLogin            *time.Time
+	SecurityCode         string
+	State                string
+	UpdatedAt            *time.Time
+	Zipcode              string
+}
+
+// TableName overrides the default tablename generated by GORM
+func (CardORM) TableName() string {
+	return "cards"
+}
+
+// ToORM runs the BeforeToORM hook if present, converts the fields of this
+// object to ORM format, runs the AfterToORM hook, then returns the ORM object
+func (m *Card) ToORM(ctx context.Context) (CardORM, error) {
+	to := CardORM{}
+	var err error
+	if prehook, ok := interface{}(m).(CardWithBeforeToORM); ok {
+		if err = prehook.BeforeToORM(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.LastLogin != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.LastLogin); err != nil {
+			return to, err
+		}
+		to.LastLogin = &t
+	}
+	to.CardNumber = m.CardNumber
+	to.SecurityCode = m.SecurityCode
+	to.CardZipCode = m.CardZipCode
+	to.FullName = m.FullName
+	to.City = m.City
+	to.State = m.State
+	to.Zipcode = m.Zipcode
+	to.Address = m.Address
+	if posthook, ok := interface{}(m).(CardWithAfterToORM); ok {
+		err = posthook.AfterToORM(ctx, &to)
+	}
+	return to, err
+}
+
+// ToPB runs the BeforeToPB hook if present, converts the fields of this
+// object to PB format, runs the AfterToPB hook, then returns the PB object
+func (m *CardORM) ToPB(ctx context.Context) (Card, error) {
+	to := Card{}
+	var err error
+	if prehook, ok := interface{}(m).(CardWithBeforeToPB); ok {
+		if err = prehook.BeforeToPB(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.LastLogin != nil {
+		if to.LastLogin, err = ptypes1.TimestampProto(*m.LastLogin); err != nil {
+			return to, err
+		}
+	}
+	to.CardNumber = m.CardNumber
+	to.SecurityCode = m.SecurityCode
+	to.CardZipCode = m.CardZipCode
+	to.FullName = m.FullName
+	to.City = m.City
+	to.State = m.State
+	to.Zipcode = m.Zipcode
+	to.Address = m.Address
+	if posthook, ok := interface{}(m).(CardWithAfterToPB); ok {
+		err = posthook.AfterToPB(ctx, &to)
+	}
+	return to, err
+}
+
+// The following are interfaces you can implement for special behavior during ORM/PB conversions
+// of type Card the arg will be the target, the caller the one being converted from
+
+// CardBeforeToORM called before default ToORM code
+type CardWithBeforeToORM interface {
+	BeforeToORM(context.Context, *CardORM) error
+}
+
+// CardAfterToORM called after default ToORM code
+type CardWithAfterToORM interface {
+	AfterToORM(context.Context, *CardORM) error
+}
+
+// CardBeforeToPB called before default ToPB code
+type CardWithBeforeToPB interface {
+	BeforeToPB(context.Context, *Card) error
+}
+
+// CardAfterToPB called after default ToPB code
+type CardWithAfterToPB interface {
+	AfterToPB(context.Context, *Card) error
+}
+
+type PinORM struct {
+	CreatedAt  *time.Time
+	DeletedAt  *time.Time
+	Id         int32 `gorm:"type:integer;primary_key"`
+	LastLogin  *time.Time
+	PaymentsId *int32
+	Pin        string
+	PinEnabled bool
+	UpdatedAt  *time.Time
+}
+
+// TableName overrides the default tablename generated by GORM
+func (PinORM) TableName() string {
+	return "pins"
+}
+
+// ToORM runs the BeforeToORM hook if present, converts the fields of this
+// object to ORM format, runs the AfterToORM hook, then returns the ORM object
+func (m *Pin) ToORM(ctx context.Context) (PinORM, error) {
+	to := PinORM{}
+	var err error
+	if prehook, ok := interface{}(m).(PinWithBeforeToORM); ok {
+		if err = prehook.BeforeToORM(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	if m.LastLogin != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.LastLogin); err != nil {
+			return to, err
+		}
+		to.LastLogin = &t
+	}
+	to.PinEnabled = m.PinEnabled
+	to.Pin = m.Pin
+	if posthook, ok := interface{}(m).(PinWithAfterToORM); ok {
+		err = posthook.AfterToORM(ctx, &to)
+	}
+	return to, err
+}
+
+// ToPB runs the BeforeToPB hook if present, converts the fields of this
+// object to PB format, runs the AfterToPB hook, then returns the PB object
+func (m *PinORM) ToPB(ctx context.Context) (Pin, error) {
+	to := Pin{}
+	var err error
+	if prehook, ok := interface{}(m).(PinWithBeforeToPB); ok {
+		if err = prehook.BeforeToPB(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.LastLogin != nil {
+		if to.LastLogin, err = ptypes1.TimestampProto(*m.LastLogin); err != nil {
+			return to, err
+		}
+	}
+	to.PinEnabled = m.PinEnabled
+	to.Pin = m.Pin
+	if posthook, ok := interface{}(m).(PinWithAfterToPB); ok {
+		err = posthook.AfterToPB(ctx, &to)
+	}
+	return to, err
+}
+
+// The following are interfaces you can implement for special behavior during ORM/PB conversions
+// of type Pin the arg will be the target, the caller the one being converted from
+
+// PinBeforeToORM called before default ToORM code
+type PinWithBeforeToORM interface {
+	BeforeToORM(context.Context, *PinORM) error
+}
+
+// PinAfterToORM called after default ToORM code
+type PinWithAfterToORM interface {
+	AfterToORM(context.Context, *PinORM) error
+}
+
+// PinBeforeToPB called before default ToPB code
+type PinWithBeforeToPB interface {
+	BeforeToPB(context.Context, *Pin) error
+}
+
+// PinAfterToPB called after default ToPB code
+type PinWithAfterToPB interface {
+	AfterToPB(context.Context, *Pin) error
+}
+
+type NotificationORM struct {
+	CreatedAt  *time.Time
+	DeletedAt  *time.Time
+	Id         int32 `gorm:"type:integer;primary_key"`
+	PauseAll   bool
+	SettingsId *int32
+	UpdatedAt  *time.Time
+}
+
+// TableName overrides the default tablename generated by GORM
+func (NotificationORM) TableName() string {
+	return "notifications"
+}
+
+// ToORM runs the BeforeToORM hook if present, converts the fields of this
+// object to ORM format, runs the AfterToORM hook, then returns the ORM object
+func (m *Notification) ToORM(ctx context.Context) (NotificationORM, error) {
+	to := NotificationORM{}
+	var err error
+	if prehook, ok := interface{}(m).(NotificationWithBeforeToORM); ok {
+		if err = prehook.BeforeToORM(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.CreatedAt); err != nil {
+			return to, err
+		}
+		to.CreatedAt = &t
+	}
+	if m.UpdatedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.UpdatedAt); err != nil {
+			return to, err
+		}
+		to.UpdatedAt = &t
+	}
+	if m.DeletedAt != nil {
+		var t time.Time
+		if t, err = ptypes1.Timestamp(m.DeletedAt); err != nil {
+			return to, err
+		}
+		to.DeletedAt = &t
+	}
+	to.PauseAll = m.PauseAll
+	if posthook, ok := interface{}(m).(NotificationWithAfterToORM); ok {
+		err = posthook.AfterToORM(ctx, &to)
+	}
+	return to, err
+}
+
+// ToPB runs the BeforeToPB hook if present, converts the fields of this
+// object to PB format, runs the AfterToPB hook, then returns the PB object
+func (m *NotificationORM) ToPB(ctx context.Context) (Notification, error) {
+	to := Notification{}
+	var err error
+	if prehook, ok := interface{}(m).(NotificationWithBeforeToPB); ok {
+		if err = prehook.BeforeToPB(ctx, &to); err != nil {
+			return to, err
+		}
+	}
+	to.Id = m.Id
+	if m.CreatedAt != nil {
+		if to.CreatedAt, err = ptypes1.TimestampProto(*m.CreatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.UpdatedAt != nil {
+		if to.UpdatedAt, err = ptypes1.TimestampProto(*m.UpdatedAt); err != nil {
+			return to, err
+		}
+	}
+	if m.DeletedAt != nil {
+		if to.DeletedAt, err = ptypes1.TimestampProto(*m.DeletedAt); err != nil {
+			return to, err
+		}
+	}
+	to.PauseAll = m.PauseAll
+	if posthook, ok := interface{}(m).(NotificationWithAfterToPB); ok {
+		err = posthook.AfterToPB(ctx, &to)
+	}
+	return to, err
+}
+
+// The following are interfaces you can implement for special behavior during ORM/PB conversions
+// of type Notification the arg will be the target, the caller the one being converted from
+
+// NotificationBeforeToORM called before default ToORM code
+type NotificationWithBeforeToORM interface {
+	BeforeToORM(context.Context, *NotificationORM) error
+}
+
+// NotificationAfterToORM called after default ToORM code
+type NotificationWithAfterToORM interface {
+	AfterToORM(context.Context, *NotificationORM) error
+}
+
+// NotificationBeforeToPB called before default ToPB code
+type NotificationWithBeforeToPB interface {
+	BeforeToPB(context.Context, *Notification) error
+}
+
+// NotificationAfterToPB called after default ToPB code
+type NotificationWithAfterToPB interface {
+	AfterToPB(context.Context, *Notification) error
 }
 
 // DefaultCreateUser executes a basic gorm create call
@@ -1291,6 +2360,15 @@ func DefaultStrictUpdateUser(ctx context.Context, in *User, db *gorm1.DB) (*User
 			return nil, err
 		}
 	}
+	filterSubscriptionsId := SubscriptionsORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterSubscriptionsId.UserId = new(int32)
+	*filterSubscriptionsId.UserId = ormObj.Id
+	if err = db.Where(filterSubscriptionsId).Delete(SubscriptionsORM{}).Error; err != nil {
+		return nil, err
+	}
 	if hook, ok := interface{}(&ormObj).(UserORMWithBeforeStrictUpdateSave); ok {
 		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
@@ -1403,7 +2481,7 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 		return nil, errors1.NilArgumentError
 	}
 	var err error
-	var updatedProfile bool
+	var updatedProfileId bool
 	for i, f := range updateMask.Paths {
 		if f == prefix+"Id" {
 			patchee.Id = patcher.Id
@@ -1411,6 +2489,10 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 		}
 		if f == prefix+"CreatedAt" {
 			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
 			continue
 		}
 		if f == prefix+"UpdatedAt" {
@@ -1461,45 +2543,33 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 			patchee.PhoneNumber = patcher.PhoneNumber
 			continue
 		}
-		if f == prefix+"Bio" {
-			patchee.Bio = patcher.Bio
-			continue
-		}
-		if f == prefix+"Headline" {
-			patchee.Headline = patcher.Headline
+		if f == prefix+"Email" {
+			patchee.Email = patcher.Email
 			continue
 		}
 		if f == prefix+"Intent" {
 			patchee.Intent = patcher.Intent
 			continue
 		}
-		if f == prefix+"Email" {
-			patchee.Email = patcher.Email
-			continue
-		}
-		if !updatedProfile && strings.HasPrefix(f, prefix+"Profile.") {
-			updatedProfile = true
-			if patcher.Profile == nil {
-				patchee.Profile = nil
+		if !updatedProfileId && strings.HasPrefix(f, prefix+"ProfileId.") {
+			updatedProfileId = true
+			if patcher.ProfileId == nil {
+				patchee.ProfileId = nil
 				continue
 			}
-			if patchee.Profile == nil {
-				patchee.Profile = &Profile{}
+			if patchee.ProfileId == nil {
+				patchee.ProfileId = &Profile{}
 			}
-			if o, err := DefaultApplyFieldMaskProfile(ctx, patchee.Profile, patcher.Profile, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Profile.", db); err != nil {
+			if o, err := DefaultApplyFieldMaskProfile(ctx, patchee.ProfileId, patcher.ProfileId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"ProfileId.", db); err != nil {
 				return nil, err
 			} else {
-				patchee.Profile = o
+				patchee.ProfileId = o
 			}
 			continue
 		}
-		if f == prefix+"Profile" {
-			updatedProfile = true
-			patchee.Profile = patcher.Profile
-			continue
-		}
-		if f == prefix+"DeletedAt" {
-			patchee.DeletedAt = patcher.DeletedAt
+		if f == prefix+"ProfileId" {
+			updatedProfileId = true
+			patchee.ProfileId = patcher.ProfileId
 			continue
 		}
 		if f == prefix+"ResetToken" {
@@ -1508,6 +2578,14 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 		}
 		if f == prefix+"ResetTokenExpiration" {
 			patchee.ResetTokenExpiration = patcher.ResetTokenExpiration
+			continue
+		}
+		if f == prefix+"SubscriptionsId" {
+			patchee.SubscriptionsId = patcher.SubscriptionsId
+			continue
+		}
+		if f == prefix+"IsActive" {
+			patchee.IsActive = patcher.IsActive
 			continue
 		}
 	}
@@ -1738,49 +2816,13 @@ func DefaultStrictUpdateProfile(ctx context.Context, in *Profile, db *gorm1.DB) 
 			return nil, err
 		}
 	}
-	filterAddress := AddressORM{}
+	filterEducationId := EducationORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterAddress.AddressProfileId = new(int32)
-	*filterAddress.AddressProfileId = ormObj.Id
-	if err = db.Where(filterAddress).Delete(AddressORM{}).Error; err != nil {
-		return nil, err
-	}
-	filterEducation := EducationORM{}
-	if ormObj.Id == 0 {
-		return nil, errors1.EmptyIdError
-	}
-	filterEducation.ProfileId = new(int32)
-	*filterEducation.ProfileId = ormObj.Id
-	if err = db.Where(filterEducation).Delete(EducationORM{}).Error; err != nil {
-		return nil, err
-	}
-	filterExperience := ExperienceORM{}
-	if ormObj.Id == 0 {
-		return nil, errors1.EmptyIdError
-	}
-	filterExperience.ProfileId = new(int32)
-	*filterExperience.ProfileId = ormObj.Id
-	if err = db.Where(filterExperience).Delete(ExperienceORM{}).Error; err != nil {
-		return nil, err
-	}
-	filterPlacesLivedIn := AddressORM{}
-	if ormObj.Id == 0 {
-		return nil, errors1.EmptyIdError
-	}
-	filterPlacesLivedIn.PlacesLivedInProfileId = new(int32)
-	*filterPlacesLivedIn.PlacesLivedInProfileId = ormObj.Id
-	if err = db.Where(filterPlacesLivedIn).Delete(AddressORM{}).Error; err != nil {
-		return nil, err
-	}
-	filterSubscription := SubscriptionsORM{}
-	if ormObj.Id == 0 {
-		return nil, errors1.EmptyIdError
-	}
-	filterSubscription.ProfileId = new(int32)
-	*filterSubscription.ProfileId = ormObj.Id
-	if err = db.Where(filterSubscription).Delete(SubscriptionsORM{}).Error; err != nil {
+	filterEducationId.ProfileId = new(int32)
+	*filterEducationId.ProfileId = ormObj.Id
+	if err = db.Where(filterEducationId).Delete(EducationORM{}).Error; err != nil {
 		return nil, err
 	}
 	if hook, ok := interface{}(&ormObj).(ProfileORMWithBeforeStrictUpdateSave); ok {
@@ -1895,11 +2937,10 @@ func DefaultApplyFieldMaskProfile(ctx context.Context, patchee *Profile, patcher
 		return nil, errors1.NilArgumentError
 	}
 	var err error
-	var updatedAddress bool
+	var updatedAddressId bool
+	var updatedTeamId bool
 	var updatedSocialMedia bool
-	var updatedContact bool
-	var updatedSettings bool
-	var updatedInvestmentDetails bool
+	var updatedSettingsId bool
 	for i, f := range updateMask.Paths {
 		if f == prefix+"Id" {
 			patchee.Id = patcher.Id
@@ -1909,56 +2950,78 @@ func DefaultApplyFieldMaskProfile(ctx context.Context, patchee *Profile, patcher
 			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
 		if f == prefix+"UpdatedAt" {
 			patchee.UpdatedAt = patcher.UpdatedAt
 			continue
 		}
-		if f == prefix+"Title" {
-			patchee.Title = patcher.Title
+		if f == prefix+"Bio" {
+			patchee.Bio = patcher.Bio
 			continue
 		}
-		if f == prefix+"Experience" {
-			patchee.Experience = patcher.Experience
+		if f == prefix+"ExperienceId" {
+			patchee.ExperienceId = patcher.ExperienceId
 			continue
 		}
-		if !updatedAddress && strings.HasPrefix(f, prefix+"Address.") {
-			updatedAddress = true
-			if patcher.Address == nil {
-				patchee.Address = nil
+		if !updatedAddressId && strings.HasPrefix(f, prefix+"AddressId.") {
+			updatedAddressId = true
+			if patcher.AddressId == nil {
+				patchee.AddressId = nil
 				continue
 			}
-			if patchee.Address == nil {
-				patchee.Address = &Address{}
+			if patchee.AddressId == nil {
+				patchee.AddressId = &Address{}
 			}
-			if o, err := DefaultApplyFieldMaskAddress(ctx, patchee.Address, patcher.Address, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Address.", db); err != nil {
+			if o, err := DefaultApplyFieldMaskAddress(ctx, patchee.AddressId, patcher.AddressId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"AddressId.", db); err != nil {
 				return nil, err
 			} else {
-				patchee.Address = o
+				patchee.AddressId = o
 			}
 			continue
 		}
-		if f == prefix+"Address" {
-			updatedAddress = true
-			patchee.Address = patcher.Address
+		if f == prefix+"AddressId" {
+			updatedAddressId = true
+			patchee.AddressId = patcher.AddressId
 			continue
 		}
-		if f == prefix+"Education" {
-			patchee.Education = patcher.Education
+		if f == prefix+"EducationId" {
+			patchee.EducationId = patcher.EducationId
 			continue
 		}
 		if f == prefix+"Skills" {
 			patchee.Skills = patcher.Skills
 			continue
 		}
-		if f == prefix+"UserTeams" {
-			patchee.UserTeams = patcher.UserTeams
+		if !updatedTeamId && strings.HasPrefix(f, prefix+"TeamId.") {
+			updatedTeamId = true
+			if patcher.TeamId == nil {
+				patchee.TeamId = nil
+				continue
+			}
+			if patchee.TeamId == nil {
+				patchee.TeamId = &Team{}
+			}
+			if o, err := DefaultApplyFieldMaskTeam(ctx, patchee.TeamId, patcher.TeamId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"TeamId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.TeamId = o
+			}
 			continue
 		}
-		if f == prefix+"UserGroups" {
-			patchee.UserGroups = patcher.UserGroups
+		if f == prefix+"TeamId" {
+			updatedTeamId = true
+			patchee.TeamId = patcher.TeamId
+			continue
+		}
+		if f == prefix+"GroupId" {
+			patchee.GroupId = patcher.GroupId
 			continue
 		}
 		if !updatedSocialMedia && strings.HasPrefix(f, prefix+"SocialMedia.") {
+			updatedSocialMedia = true
 			if patcher.SocialMedia == nil {
 				patchee.SocialMedia = nil
 				continue
@@ -1966,104 +3029,49 @@ func DefaultApplyFieldMaskProfile(ctx context.Context, patchee *Profile, patcher
 			if patchee.SocialMedia == nil {
 				patchee.SocialMedia = &SocialMedia{}
 			}
-			childMask := &field_mask1.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"SocialMedia."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
+			if o, err := DefaultApplyFieldMaskSocialMedia(ctx, patchee.SocialMedia, patcher.SocialMedia, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"SocialMedia.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.SocialMedia = o
 			}
-			if err := gorm2.MergeWithMask(patcher.SocialMedia, patchee.SocialMedia, childMask); err != nil {
-				return nil, nil
-			}
+			continue
 		}
 		if f == prefix+"SocialMedia" {
 			updatedSocialMedia = true
 			patchee.SocialMedia = patcher.SocialMedia
 			continue
 		}
-		if !updatedContact && strings.HasPrefix(f, prefix+"Contact.") {
-			if patcher.Contact == nil {
-				patchee.Contact = nil
+		if !updatedSettingsId && strings.HasPrefix(f, prefix+"SettingsId.") {
+			updatedSettingsId = true
+			if patcher.SettingsId == nil {
+				patchee.SettingsId = nil
 				continue
 			}
-			if patchee.Contact == nil {
-				patchee.Contact = &Contact{}
+			if patchee.SettingsId == nil {
+				patchee.SettingsId = &Settings{}
 			}
-			childMask := &field_mask1.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Contact."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm2.MergeWithMask(patcher.Contact, patchee.Contact, childMask); err != nil {
-				return nil, nil
-			}
-		}
-		if f == prefix+"Contact" {
-			updatedContact = true
-			patchee.Contact = patcher.Contact
-			continue
-		}
-		if !updatedSettings && strings.HasPrefix(f, prefix+"Settings.") {
-			updatedSettings = true
-			if patcher.Settings == nil {
-				patchee.Settings = nil
-				continue
-			}
-			if patchee.Settings == nil {
-				patchee.Settings = &Settings{}
-			}
-			if o, err := DefaultApplyFieldMaskSettings(ctx, patchee.Settings, patcher.Settings, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Settings.", db); err != nil {
+			if o, err := DefaultApplyFieldMaskSettings(ctx, patchee.SettingsId, patcher.SettingsId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"SettingsId.", db); err != nil {
 				return nil, err
 			} else {
-				patchee.Settings = o
+				patchee.SettingsId = o
 			}
 			continue
 		}
-		if f == prefix+"Settings" {
-			updatedSettings = true
-			patchee.Settings = patcher.Settings
-			continue
-		}
-		if f == prefix+"Subscription" {
-			patchee.Subscription = patcher.Subscription
-			continue
-		}
-		if !updatedInvestmentDetails && strings.HasPrefix(f, prefix+"InvestmentDetails.") {
-			updatedInvestmentDetails = true
-			if patcher.InvestmentDetails == nil {
-				patchee.InvestmentDetails = nil
-				continue
-			}
-			if patchee.InvestmentDetails == nil {
-				patchee.InvestmentDetails = &InvestorFundingDetails{}
-			}
-			if o, err := DefaultApplyFieldMaskInvestorFundingDetails(ctx, patchee.InvestmentDetails, patcher.InvestmentDetails, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"InvestmentDetails.", db); err != nil {
-				return nil, err
-			} else {
-				patchee.InvestmentDetails = o
-			}
-			continue
-		}
-		if f == prefix+"InvestmentDetails" {
-			updatedInvestmentDetails = true
-			patchee.InvestmentDetails = patcher.InvestmentDetails
+		if f == prefix+"SettingsId" {
+			updatedSettingsId = true
+			patchee.SettingsId = patcher.SettingsId
 			continue
 		}
 		if f == prefix+"ProfileType" {
 			patchee.ProfileType = patcher.ProfileType
 			continue
 		}
-		if f == prefix+"PlacesLivedIn" {
-			patchee.PlacesLivedIn = patcher.PlacesLivedIn
+		if f == prefix+"Nationality" {
+			patchee.Nationality = patcher.Nationality
 			continue
 		}
-		if f == prefix+"Languages" {
-			patchee.Languages = patcher.Languages
-			continue
-		}
-		if f == prefix+"DeletedAt" {
-			patchee.DeletedAt = patcher.DeletedAt
+		if f == prefix+"AvatarUrl" {
+			patchee.AvatarUrl = patcher.AvatarUrl
 			continue
 		}
 	}
@@ -2294,13 +3302,22 @@ func DefaultStrictUpdateGroup(ctx context.Context, in *Group, db *gorm1.DB) (*Gr
 			return nil, err
 		}
 	}
-	filterGroupMembers := ProfileORM{}
+	filterAdmin := UserORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterGroupMembers.GroupId = new(int32)
-	*filterGroupMembers.GroupId = ormObj.Id
-	if err = db.Where(filterGroupMembers).Delete(ProfileORM{}).Error; err != nil {
+	filterAdmin.AdminGroupId = new(int32)
+	*filterAdmin.AdminGroupId = ormObj.Id
+	if err = db.Where(filterAdmin).Delete(UserORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterGroupMembers := UserORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterGroupMembers.GroupMembersGroupId = new(int32)
+	*filterGroupMembers.GroupMembersGroupId = ormObj.Id
+	if err = db.Where(filterGroupMembers).Delete(UserORM{}).Error; err != nil {
 		return nil, err
 	}
 	if hook, ok := interface{}(&ormObj).(GroupORMWithBeforeStrictUpdateSave); ok {
@@ -2415,7 +3432,8 @@ func DefaultApplyFieldMaskGroup(ctx context.Context, patchee *Group, patcher *Gr
 		return nil, errors1.NilArgumentError
 	}
 	var err error
-	for _, f := range updateMask.Paths {
+	var updatedAdmin bool
+	for i, f := range updateMask.Paths {
 		if f == prefix+"Id" {
 			patchee.Id = patcher.Id
 			continue
@@ -2424,40 +3442,65 @@ func DefaultApplyFieldMaskGroup(ctx context.Context, patchee *Group, patcher *Gr
 			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
-		if f == prefix+"UpdatedtAt" {
-			patchee.UpdatedtAt = patcher.UpdatedtAt
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
 			continue
 		}
 		if f == prefix+"Type" {
 			patchee.Type = patcher.Type
 			continue
 		}
-		if f == prefix+"GroupName" {
-			patchee.GroupName = patcher.GroupName
+		if f == prefix+"Name" {
+			patchee.Name = patcher.Name
 			continue
 		}
-		if f == prefix+"GroupBio" {
-			patchee.GroupBio = patcher.GroupBio
+		if f == prefix+"Bio" {
+			patchee.Bio = patcher.Bio
 			continue
 		}
 		if f == prefix+"Tags" {
 			patchee.Tags = patcher.Tags
 			continue
 		}
-		if f == prefix+"NumberOfGroupMembers" {
-			patchee.NumberOfGroupMembers = patcher.NumberOfGroupMembers
+		if f == prefix+"NumberOfMembers" {
+			patchee.NumberOfMembers = patcher.NumberOfMembers
 			continue
 		}
 		if f == prefix+"GroupMembers" {
 			patchee.GroupMembers = patcher.GroupMembers
 			continue
 		}
-		if f == prefix+"GroupType" {
-			patchee.GroupType = patcher.GroupType
+		if f == prefix+"IsPublic" {
+			patchee.IsPublic = patcher.IsPublic
 			continue
 		}
-		if f == prefix+"DeletedAt" {
-			patchee.DeletedAt = patcher.DeletedAt
+		if !updatedAdmin && strings.HasPrefix(f, prefix+"Admin.") {
+			updatedAdmin = true
+			if patcher.Admin == nil {
+				patchee.Admin = nil
+				continue
+			}
+			if patchee.Admin == nil {
+				patchee.Admin = &User{}
+			}
+			if o, err := DefaultApplyFieldMaskUser(ctx, patchee.Admin, patcher.Admin, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Admin.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.Admin = o
+			}
+			continue
+		}
+		if f == prefix+"Admin" {
+			updatedAdmin = true
+			patchee.Admin = patcher.Admin
+			continue
+		}
+		if f == prefix+"AvatarUrl" {
+			patchee.AvatarUrl = patcher.AvatarUrl
 			continue
 		}
 	}
@@ -2688,31 +3731,49 @@ func DefaultStrictUpdateTeam(ctx context.Context, in *Team, db *gorm1.DB) (*Team
 			return nil, err
 		}
 	}
-	filterHeadquarters := AddressORM{}
+	filterAdminId := UserORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterHeadquarters.TeamId = new(int32)
-	*filterHeadquarters.TeamId = ormObj.Id
-	if err = db.Where(filterHeadquarters).Delete(AddressORM{}).Error; err != nil {
+	filterAdminId.AdminIdTeamId = new(int32)
+	*filterAdminId.AdminIdTeamId = ormObj.Id
+	if err = db.Where(filterAdminId).Delete(UserORM{}).Error; err != nil {
 		return nil, err
 	}
-	filterInvestorDetails := InvestorFundingDetailsORM{}
+	filterAdvisors := UserORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterInvestorDetails.TeamId = new(int32)
-	*filterInvestorDetails.TeamId = ormObj.Id
-	if err = db.Where(filterInvestorDetails).Delete(InvestorFundingDetailsORM{}).Error; err != nil {
+	filterAdvisors.AdvisorsTeamId = new(int32)
+	*filterAdvisors.AdvisorsTeamId = ormObj.Id
+	if err = db.Where(filterAdvisors).Delete(UserORM{}).Error; err != nil {
 		return nil, err
 	}
-	filterStartupDetails := StartupFundingDetailsORM{}
+	filterHeadquartersId := AddressORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterStartupDetails.TeamId = new(int32)
-	*filterStartupDetails.TeamId = ormObj.Id
-	if err = db.Where(filterStartupDetails).Delete(StartupFundingDetailsORM{}).Error; err != nil {
+	filterHeadquartersId.TeamId = new(int32)
+	*filterHeadquartersId.TeamId = ormObj.Id
+	if err = db.Where(filterHeadquartersId).Delete(AddressORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterMembers := UserORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterMembers.MembersTeamId = new(int32)
+	*filterMembers.MembersTeamId = ormObj.Id
+	if err = db.Where(filterMembers).Delete(UserORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterSocialMedia := SocialMediaORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterSocialMedia.TeamId = new(int32)
+	*filterSocialMedia.TeamId = ormObj.Id
+	if err = db.Where(filterSocialMedia).Delete(SocialMediaORM{}).Error; err != nil {
 		return nil, err
 	}
 	filterSubscriptions := SubscriptionsORM{}
@@ -2722,6 +3783,15 @@ func DefaultStrictUpdateTeam(ctx context.Context, in *Team, db *gorm1.DB) (*Team
 	filterSubscriptions.TeamId = new(int32)
 	*filterSubscriptions.TeamId = ormObj.Id
 	if err = db.Where(filterSubscriptions).Delete(SubscriptionsORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterTeamProfileId := TeamProfileORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterTeamProfileId.TeamId = new(int32)
+	*filterTeamProfileId.TeamId = ormObj.Id
+	if err = db.Where(filterTeamProfileId).Delete(TeamProfileORM{}).Error; err != nil {
 		return nil, err
 	}
 	if hook, ok := interface{}(&ormObj).(TeamORMWithBeforeStrictUpdateSave); ok {
@@ -2836,12 +3906,10 @@ func DefaultApplyFieldMaskTeam(ctx context.Context, patchee *Team, patcher *Team
 		return nil, errors1.NilArgumentError
 	}
 	var err error
-	var updatedHeadquarters bool
+	var updatedHeadquartersId bool
 	var updatedSocialMedia bool
-	var updatedContact bool
-	var updatedPrivacySetting bool
-	var updatedInvestorDetails bool
-	var updatedStartupDetails bool
+	var updatedTeamProfileId bool
+	var updatedAdminId bool
 	for i, f := range updateMask.Paths {
 		if f == prefix+"Id" {
 			patchee.Id = patcher.Id
@@ -2851,32 +3919,32 @@ func DefaultApplyFieldMaskTeam(ctx context.Context, patchee *Team, patcher *Team
 			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
-		if f == prefix+"UpdatedtAt" {
-			patchee.UpdatedtAt = patcher.UpdatedtAt
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
 			continue
 		}
-		if f == prefix+"TeamName" {
-			patchee.TeamName = patcher.TeamName
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
+			continue
+		}
+		if f == prefix+"Name" {
+			patchee.Name = patcher.Name
 			continue
 		}
 		if f == prefix+"Tags" {
 			patchee.Tags = patcher.Tags
 			continue
 		}
-		if f == prefix+"TeamEmail" {
-			patchee.TeamEmail = patcher.TeamEmail
+		if f == prefix+"Email" {
+			patchee.Email = patcher.Email
 			continue
 		}
 		if f == prefix+"Type" {
 			patchee.Type = patcher.Type
 			continue
 		}
-		if f == prefix+"TeamBio" {
-			patchee.TeamBio = patcher.TeamBio
-			continue
-		}
-		if f == prefix+"IndustryOfInterest" {
-			patchee.IndustryOfInterest = patcher.IndustryOfInterest
+		if f == prefix+"Industry" {
+			patchee.Industry = patcher.Industry
 			continue
 		}
 		if f == prefix+"FoundedDate" {
@@ -2887,29 +3955,29 @@ func DefaultApplyFieldMaskTeam(ctx context.Context, patchee *Team, patcher *Team
 			patchee.NumberOfEmployees = patcher.NumberOfEmployees
 			continue
 		}
-		if !updatedHeadquarters && strings.HasPrefix(f, prefix+"Headquarters.") {
-			updatedHeadquarters = true
-			if patcher.Headquarters == nil {
-				patchee.Headquarters = nil
+		if !updatedHeadquartersId && strings.HasPrefix(f, prefix+"HeadquartersId.") {
+			updatedHeadquartersId = true
+			if patcher.HeadquartersId == nil {
+				patchee.HeadquartersId = nil
 				continue
 			}
-			if patchee.Headquarters == nil {
-				patchee.Headquarters = &Address{}
+			if patchee.HeadquartersId == nil {
+				patchee.HeadquartersId = &Address{}
 			}
-			if o, err := DefaultApplyFieldMaskAddress(ctx, patchee.Headquarters, patcher.Headquarters, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Headquarters.", db); err != nil {
+			if o, err := DefaultApplyFieldMaskAddress(ctx, patchee.HeadquartersId, patcher.HeadquartersId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"HeadquartersId.", db); err != nil {
 				return nil, err
 			} else {
-				patchee.Headquarters = o
+				patchee.HeadquartersId = o
 			}
 			continue
 		}
-		if f == prefix+"Headquarters" {
-			updatedHeadquarters = true
-			patchee.Headquarters = patcher.Headquarters
+		if f == prefix+"HeadquartersId" {
+			updatedHeadquartersId = true
+			patchee.HeadquartersId = patcher.HeadquartersId
 			continue
 		}
-		if f == prefix+"TeamMembers" {
-			patchee.TeamMembers = patcher.TeamMembers
+		if f == prefix+"Members" {
+			patchee.Members = patcher.Members
 			continue
 		}
 		if f == prefix+"Advisors" {
@@ -2917,6 +3985,7 @@ func DefaultApplyFieldMaskTeam(ctx context.Context, patchee *Team, patcher *Team
 			continue
 		}
 		if !updatedSocialMedia && strings.HasPrefix(f, prefix+"SocialMedia.") {
+			updatedSocialMedia = true
 			if patcher.SocialMedia == nil {
 				patchee.SocialMedia = nil
 				continue
@@ -2924,119 +3993,86 @@ func DefaultApplyFieldMaskTeam(ctx context.Context, patchee *Team, patcher *Team
 			if patchee.SocialMedia == nil {
 				patchee.SocialMedia = &SocialMedia{}
 			}
-			childMask := &field_mask1.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"SocialMedia."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
+			if o, err := DefaultApplyFieldMaskSocialMedia(ctx, patchee.SocialMedia, patcher.SocialMedia, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"SocialMedia.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.SocialMedia = o
 			}
-			if err := gorm2.MergeWithMask(patcher.SocialMedia, patchee.SocialMedia, childMask); err != nil {
-				return nil, nil
-			}
+			continue
 		}
 		if f == prefix+"SocialMedia" {
 			updatedSocialMedia = true
 			patchee.SocialMedia = patcher.SocialMedia
 			continue
 		}
-		if !updatedContact && strings.HasPrefix(f, prefix+"Contact.") {
-			if patcher.Contact == nil {
-				patchee.Contact = nil
-				continue
-			}
-			if patchee.Contact == nil {
-				patchee.Contact = &Contact{}
-			}
-			childMask := &field_mask1.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Contact."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm2.MergeWithMask(patcher.Contact, patchee.Contact, childMask); err != nil {
-				return nil, nil
-			}
-		}
-		if f == prefix+"Contact" {
-			updatedContact = true
-			patchee.Contact = patcher.Contact
+		if f == prefix+"PhoneNumber" {
+			patchee.PhoneNumber = patcher.PhoneNumber
 			continue
 		}
-		if !updatedPrivacySetting && strings.HasPrefix(f, prefix+"PrivacySetting.") {
-			if patcher.PrivacySetting == nil {
-				patchee.PrivacySetting = nil
-				continue
-			}
-			if patchee.PrivacySetting == nil {
-				patchee.PrivacySetting = &Privacy{}
-			}
-			childMask := &field_mask1.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"PrivacySetting."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm2.MergeWithMask(patcher.PrivacySetting, patchee.PrivacySetting, childMask); err != nil {
-				return nil, nil
-			}
-		}
-		if f == prefix+"PrivacySetting" {
-			updatedPrivacySetting = true
-			patchee.PrivacySetting = patcher.PrivacySetting
+		if f == prefix+"Password" {
+			patchee.Password = patcher.Password
 			continue
 		}
-		if !updatedInvestorDetails && strings.HasPrefix(f, prefix+"InvestorDetails.") {
-			updatedInvestorDetails = true
-			if patcher.InvestorDetails == nil {
-				patchee.InvestorDetails = nil
+		if !updatedTeamProfileId && strings.HasPrefix(f, prefix+"TeamProfileId.") {
+			updatedTeamProfileId = true
+			if patcher.TeamProfileId == nil {
+				patchee.TeamProfileId = nil
 				continue
 			}
-			if patchee.InvestorDetails == nil {
-				patchee.InvestorDetails = &InvestorFundingDetails{}
+			if patchee.TeamProfileId == nil {
+				patchee.TeamProfileId = &TeamProfile{}
 			}
-			if o, err := DefaultApplyFieldMaskInvestorFundingDetails(ctx, patchee.InvestorDetails, patcher.InvestorDetails, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"InvestorDetails.", db); err != nil {
+			if o, err := DefaultApplyFieldMaskTeamProfile(ctx, patchee.TeamProfileId, patcher.TeamProfileId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"TeamProfileId.", db); err != nil {
 				return nil, err
 			} else {
-				patchee.InvestorDetails = o
+				patchee.TeamProfileId = o
 			}
 			continue
 		}
-		if f == prefix+"InvestorDetails" {
-			updatedInvestorDetails = true
-			patchee.InvestorDetails = patcher.InvestorDetails
-			continue
-		}
-		if !updatedStartupDetails && strings.HasPrefix(f, prefix+"StartupDetails.") {
-			updatedStartupDetails = true
-			if patcher.StartupDetails == nil {
-				patchee.StartupDetails = nil
-				continue
-			}
-			if patchee.StartupDetails == nil {
-				patchee.StartupDetails = &StartupFundingDetails{}
-			}
-			if o, err := DefaultApplyFieldMaskStartupFundingDetails(ctx, patchee.StartupDetails, patcher.StartupDetails, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"StartupDetails.", db); err != nil {
-				return nil, err
-			} else {
-				patchee.StartupDetails = o
-			}
-			continue
-		}
-		if f == prefix+"StartupDetails" {
-			updatedStartupDetails = true
-			patchee.StartupDetails = patcher.StartupDetails
-			continue
-		}
-		if f == prefix+"GroupType" {
-			patchee.GroupType = patcher.GroupType
-			continue
-		}
-		if f == prefix+"DeletedAt" {
-			patchee.DeletedAt = patcher.DeletedAt
+		if f == prefix+"TeamProfileId" {
+			updatedTeamProfileId = true
+			patchee.TeamProfileId = patcher.TeamProfileId
 			continue
 		}
 		if f == prefix+"Subscriptions" {
 			patchee.Subscriptions = patcher.Subscriptions
+			continue
+		}
+		if f == prefix+"IsActive" {
+			patchee.IsActive = patcher.IsActive
+			continue
+		}
+		if f == prefix+"ResetToken" {
+			patchee.ResetToken = patcher.ResetToken
+			continue
+		}
+		if f == prefix+"ResetTokenExpiration" {
+			patchee.ResetTokenExpiration = patcher.ResetTokenExpiration
+			continue
+		}
+		if !updatedAdminId && strings.HasPrefix(f, prefix+"AdminId.") {
+			updatedAdminId = true
+			if patcher.AdminId == nil {
+				patchee.AdminId = nil
+				continue
+			}
+			if patchee.AdminId == nil {
+				patchee.AdminId = &User{}
+			}
+			if o, err := DefaultApplyFieldMaskUser(ctx, patchee.AdminId, patcher.AdminId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"AdminId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.AdminId = o
+			}
+			continue
+		}
+		if f == prefix+"AdminId" {
+			updatedAdminId = true
+			patchee.AdminId = patcher.AdminId
+			continue
+		}
+		if f == prefix+"Bio" {
+			patchee.Bio = patcher.Bio
 			continue
 		}
 	}
@@ -3099,8 +4135,8 @@ type TeamORMWithAfterListFind interface {
 	AfterListFind(context.Context, *gorm1.DB, *[]TeamORM) error
 }
 
-// DefaultCreateInvestorFundingDetails executes a basic gorm create call
-func DefaultCreateInvestorFundingDetails(ctx context.Context, in *InvestorFundingDetails, db *gorm1.DB) (*InvestorFundingDetails, error) {
+// DefaultCreateTeamProfile executes a basic gorm create call
+func DefaultCreateTeamProfile(ctx context.Context, in *TeamProfile, db *gorm1.DB) (*TeamProfile, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
@@ -3108,7 +4144,7 @@ func DefaultCreateInvestorFundingDetails(ctx context.Context, in *InvestorFundin
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeCreate_); ok {
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeCreate_); ok {
 		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3116,7 +4152,7 @@ func DefaultCreateInvestorFundingDetails(ctx context.Context, in *InvestorFundin
 	if err = db.Create(&ormObj).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithAfterCreate_); ok {
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithAfterCreate_); ok {
 		if err = hook.AfterCreate_(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3125,15 +4161,15 @@ func DefaultCreateInvestorFundingDetails(ctx context.Context, in *InvestorFundin
 	return &pbResponse, err
 }
 
-type InvestorFundingDetailsORMWithBeforeCreate_ interface {
+type TeamProfileORMWithBeforeCreate_ interface {
 	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithAfterCreate_ interface {
+type TeamProfileORMWithAfterCreate_ interface {
 	AfterCreate_(context.Context, *gorm1.DB) error
 }
 
-// DefaultReadInvestorFundingDetails executes a basic gorm read call
-func DefaultReadInvestorFundingDetails(ctx context.Context, in *InvestorFundingDetails, db *gorm1.DB) (*InvestorFundingDetails, error) {
+// DefaultReadTeamProfile executes a basic gorm read call
+func DefaultReadTeamProfile(ctx context.Context, in *TeamProfile, db *gorm1.DB) (*TeamProfile, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
@@ -3144,24 +4180,24 @@ func DefaultReadInvestorFundingDetails(ctx context.Context, in *InvestorFundingD
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeReadApplyQuery); ok {
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeReadApplyQuery); ok {
 		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &InvestorFundingDetailsORM{}); err != nil {
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &TeamProfileORM{}); err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeReadFind); ok {
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeReadFind); ok {
 		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	ormResponse := InvestorFundingDetailsORM{}
+	ormResponse := TeamProfileORM{}
 	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormResponse).(InvestorFundingDetailsORMWithAfterReadFind); ok {
+	if hook, ok := interface{}(&ormResponse).(TeamProfileORMWithAfterReadFind); ok {
 		if err = hook.AfterReadFind(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3170,17 +4206,17 @@ func DefaultReadInvestorFundingDetails(ctx context.Context, in *InvestorFundingD
 	return &pbResponse, err
 }
 
-type InvestorFundingDetailsORMWithBeforeReadApplyQuery interface {
+type TeamProfileORMWithBeforeReadApplyQuery interface {
 	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithBeforeReadFind interface {
+type TeamProfileORMWithBeforeReadFind interface {
 	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithAfterReadFind interface {
+type TeamProfileORMWithAfterReadFind interface {
 	AfterReadFind(context.Context, *gorm1.DB) error
 }
 
-func DefaultDeleteInvestorFundingDetails(ctx context.Context, in *InvestorFundingDetails, db *gorm1.DB) error {
+func DefaultDeleteTeamProfile(ctx context.Context, in *TeamProfile, db *gorm1.DB) error {
 	if in == nil {
 		return errors1.NilArgumentError
 	}
@@ -3191,29 +4227,510 @@ func DefaultDeleteInvestorFundingDetails(ctx context.Context, in *InvestorFundin
 	if ormObj.Id == 0 {
 		return errors1.EmptyIdError
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeDelete_); ok {
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeDelete_); ok {
 		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
 			return err
 		}
 	}
-	err = db.Where(&ormObj).Delete(&InvestorFundingDetailsORM{}).Error
+	err = db.Where(&ormObj).Delete(&TeamProfileORM{}).Error
 	if err != nil {
 		return err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithAfterDelete_); ok {
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithAfterDelete_); ok {
 		err = hook.AfterDelete_(ctx, db)
 	}
 	return err
 }
 
-type InvestorFundingDetailsORMWithBeforeDelete_ interface {
+type TeamProfileORMWithBeforeDelete_ interface {
 	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithAfterDelete_ interface {
+type TeamProfileORMWithAfterDelete_ interface {
 	AfterDelete_(context.Context, *gorm1.DB) error
 }
 
-func DefaultDeleteInvestorFundingDetailsSet(ctx context.Context, in []*InvestorFundingDetails, db *gorm1.DB) error {
+func DefaultDeleteTeamProfileSet(ctx context.Context, in []*TeamProfile, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	var err error
+	keys := []int32{}
+	for _, obj := range in {
+		ormObj, err := obj.ToORM(ctx)
+		if err != nil {
+			return err
+		}
+		if ormObj.Id == 0 {
+			return errors1.EmptyIdError
+		}
+		keys = append(keys, ormObj.Id)
+	}
+	if hook, ok := (interface{}(&TeamProfileORM{})).(TeamProfileORMWithBeforeDeleteSet); ok {
+		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where("id in (?)", keys).Delete(&TeamProfileORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := (interface{}(&TeamProfileORM{})).(TeamProfileORMWithAfterDeleteSet); ok {
+		err = hook.AfterDeleteSet(ctx, in, db)
+	}
+	return err
+}
+
+type TeamProfileORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*TeamProfile, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*TeamProfile, *gorm1.DB) error
+}
+
+// DefaultStrictUpdateTeamProfile clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateTeamProfile(ctx context.Context, in *TeamProfile, db *gorm1.DB) (*TeamProfile, error) {
+	if in == nil {
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateTeamProfile")
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lockedRow := &TeamProfileORM{}
+	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeStrictUpdateCleanup); ok {
+		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	filterInvestorDetailId := InvestorDetailORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterInvestorDetailId.TeamProfileId = new(int32)
+	*filterInvestorDetailId.TeamProfileId = ormObj.Id
+	if err = db.Where(filterInvestorDetailId).Delete(InvestorDetailORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterMediaId := MediaORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterMediaId.TeamProfileId = new(int32)
+	*filterMediaId.TeamProfileId = ormObj.Id
+	if err = db.Where(filterMediaId).Delete(MediaORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterSettingsId := SettingsORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterSettingsId.TeamProfileId = new(int32)
+	*filterSettingsId.TeamProfileId = ormObj.Id
+	if err = db.Where(filterSettingsId).Delete(SettingsORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterStartupDetailId := StartupDetailORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterStartupDetailId.TeamProfileId = new(int32)
+	*filterStartupDetailId.TeamProfileId = ormObj.Id
+	if err = db.Where(filterStartupDetailId).Delete(StartupDetailORM{}).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeStrictUpdateSave); ok {
+		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Save(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithAfterStrictUpdateSave); ok {
+		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pbResponse, err
+}
+
+type TeamProfileORMWithBeforeStrictUpdateCleanup interface {
+	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileORMWithBeforeStrictUpdateSave interface {
+	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileORMWithAfterStrictUpdateSave interface {
+	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
+}
+
+// DefaultPatchTeamProfile executes a basic gorm update call with patch behavior
+func DefaultPatchTeamProfile(ctx context.Context, in *TeamProfile, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*TeamProfile, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var pbObj TeamProfile
+	var err error
+	if hook, ok := interface{}(&pbObj).(TeamProfileWithBeforePatchRead); ok {
+		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbReadRes, err := DefaultReadTeamProfile(ctx, &TeamProfile{Id: in.GetId()}, db)
+	if err != nil {
+		return nil, err
+	}
+	pbObj = *pbReadRes
+	if hook, ok := interface{}(&pbObj).(TeamProfileWithBeforePatchApplyFieldMask); ok {
+		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := DefaultApplyFieldMaskTeamProfile(ctx, &pbObj, in, updateMask, "", db); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&pbObj).(TeamProfileWithBeforePatchSave); ok {
+		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := DefaultStrictUpdateTeamProfile(ctx, &pbObj, db)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(pbResponse).(TeamProfileWithAfterPatchSave); ok {
+		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	return pbResponse, nil
+}
+
+type TeamProfileWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *TeamProfile, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *TeamProfile, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *TeamProfile, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *TeamProfile, *field_mask1.FieldMask, *gorm1.DB) error
+}
+
+// DefaultPatchSetTeamProfile executes a bulk gorm update call with patch behavior
+func DefaultPatchSetTeamProfile(ctx context.Context, objects []*TeamProfile, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*TeamProfile, error) {
+	if len(objects) != len(updateMasks) {
+		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
+	}
+
+	results := make([]*TeamProfile, 0, len(objects))
+	for i, patcher := range objects {
+		pbResponse, err := DefaultPatchTeamProfile(ctx, patcher, updateMasks[i], db)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, pbResponse)
+	}
+
+	return results, nil
+}
+
+// DefaultApplyFieldMaskTeamProfile patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskTeamProfile(ctx context.Context, patchee *TeamProfile, patcher *TeamProfile, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*TeamProfile, error) {
+	if patcher == nil {
+		return nil, nil
+	} else if patchee == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var err error
+	var updatedSettingsId bool
+	var updatedInvestorDetailId bool
+	var updatedStartupDetailId bool
+	var updatedMediaId bool
+	for i, f := range updateMask.Paths {
+		if f == prefix+"Id" {
+			patchee.Id = patcher.Id
+			continue
+		}
+		if f == prefix+"CreatedAt" {
+			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
+			continue
+		}
+		if !updatedSettingsId && strings.HasPrefix(f, prefix+"SettingsId.") {
+			updatedSettingsId = true
+			if patcher.SettingsId == nil {
+				patchee.SettingsId = nil
+				continue
+			}
+			if patchee.SettingsId == nil {
+				patchee.SettingsId = &Settings{}
+			}
+			if o, err := DefaultApplyFieldMaskSettings(ctx, patchee.SettingsId, patcher.SettingsId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"SettingsId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.SettingsId = o
+			}
+			continue
+		}
+		if f == prefix+"SettingsId" {
+			updatedSettingsId = true
+			patchee.SettingsId = patcher.SettingsId
+			continue
+		}
+		if !updatedInvestorDetailId && strings.HasPrefix(f, prefix+"InvestorDetailId.") {
+			updatedInvestorDetailId = true
+			if patcher.InvestorDetailId == nil {
+				patchee.InvestorDetailId = nil
+				continue
+			}
+			if patchee.InvestorDetailId == nil {
+				patchee.InvestorDetailId = &InvestorDetail{}
+			}
+			if o, err := DefaultApplyFieldMaskInvestorDetail(ctx, patchee.InvestorDetailId, patcher.InvestorDetailId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"InvestorDetailId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.InvestorDetailId = o
+			}
+			continue
+		}
+		if f == prefix+"InvestorDetailId" {
+			updatedInvestorDetailId = true
+			patchee.InvestorDetailId = patcher.InvestorDetailId
+			continue
+		}
+		if !updatedStartupDetailId && strings.HasPrefix(f, prefix+"StartupDetailId.") {
+			updatedStartupDetailId = true
+			if patcher.StartupDetailId == nil {
+				patchee.StartupDetailId = nil
+				continue
+			}
+			if patchee.StartupDetailId == nil {
+				patchee.StartupDetailId = &StartupDetail{}
+			}
+			if o, err := DefaultApplyFieldMaskStartupDetail(ctx, patchee.StartupDetailId, patcher.StartupDetailId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"StartupDetailId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.StartupDetailId = o
+			}
+			continue
+		}
+		if f == prefix+"StartupDetailId" {
+			updatedStartupDetailId = true
+			patchee.StartupDetailId = patcher.StartupDetailId
+			continue
+		}
+		if !updatedMediaId && strings.HasPrefix(f, prefix+"MediaId.") {
+			updatedMediaId = true
+			if patcher.MediaId == nil {
+				patchee.MediaId = nil
+				continue
+			}
+			if patchee.MediaId == nil {
+				patchee.MediaId = &Media{}
+			}
+			if o, err := DefaultApplyFieldMaskMedia(ctx, patchee.MediaId, patcher.MediaId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"MediaId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.MediaId = o
+			}
+			continue
+		}
+		if f == prefix+"MediaId" {
+			updatedMediaId = true
+			patchee.MediaId = patcher.MediaId
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return patchee, nil
+}
+
+// DefaultListTeamProfile executes a gorm list call
+func DefaultListTeamProfile(ctx context.Context, db *gorm1.DB) ([]*TeamProfile, error) {
+	in := TeamProfile{}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeListApplyQuery); ok {
+		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &TeamProfileORM{}, &TeamProfile{}, nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithBeforeListFind); ok {
+		if db, err = hook.BeforeListFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db = db.Where(&ormObj)
+	db = db.Order("id")
+	ormResponse := []TeamProfileORM{}
+	if err := db.Find(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(TeamProfileORMWithAfterListFind); ok {
+		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse := []*TeamProfile{}
+	for _, responseEntry := range ormResponse {
+		temp, err := responseEntry.ToPB(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pbResponse = append(pbResponse, &temp)
+	}
+	return pbResponse, nil
+}
+
+type TeamProfileORMWithBeforeListApplyQuery interface {
+	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileORMWithBeforeListFind interface {
+	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type TeamProfileORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]TeamProfileORM) error
+}
+
+// DefaultCreateInvestorDetail executes a basic gorm create call
+func DefaultCreateInvestorDetail(ctx context.Context, in *InvestorDetail, db *gorm1.DB) (*InvestorDetail, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeCreate_); ok {
+		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Create(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithAfterCreate_); ok {
+		if err = hook.AfterCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type InvestorDetailORMWithBeforeCreate_ interface {
+	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type InvestorDetailORMWithAfterCreate_ interface {
+	AfterCreate_(context.Context, *gorm1.DB) error
+}
+
+// DefaultReadInvestorDetail executes a basic gorm read call
+func DefaultReadInvestorDetail(ctx context.Context, in *InvestorDetail, db *gorm1.DB) (*InvestorDetail, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeReadApplyQuery); ok {
+		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &InvestorDetailORM{}); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeReadFind); ok {
+		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	ormResponse := InvestorDetailORM{}
+	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormResponse).(InvestorDetailORMWithAfterReadFind); ok {
+		if err = hook.AfterReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormResponse.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type InvestorDetailORMWithBeforeReadApplyQuery interface {
+	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type InvestorDetailORMWithBeforeReadFind interface {
+	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type InvestorDetailORMWithAfterReadFind interface {
+	AfterReadFind(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteInvestorDetail(ctx context.Context, in *InvestorDetail, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return err
+	}
+	if ormObj.Id == 0 {
+		return errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeDelete_); ok {
+		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where(&ormObj).Delete(&InvestorDetailORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithAfterDelete_); ok {
+		err = hook.AfterDelete_(ctx, db)
+	}
+	return err
+}
+
+type InvestorDetailORMWithBeforeDelete_ interface {
+	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type InvestorDetailORMWithAfterDelete_ interface {
+	AfterDelete_(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteInvestorDetailSet(ctx context.Context, in []*InvestorDetail, db *gorm1.DB) error {
 	if in == nil {
 		return errors1.NilArgumentError
 	}
@@ -3229,54 +4746,54 @@ func DefaultDeleteInvestorFundingDetailsSet(ctx context.Context, in []*InvestorF
 		}
 		keys = append(keys, ormObj.Id)
 	}
-	if hook, ok := (interface{}(&InvestorFundingDetailsORM{})).(InvestorFundingDetailsORMWithBeforeDeleteSet); ok {
+	if hook, ok := (interface{}(&InvestorDetailORM{})).(InvestorDetailORMWithBeforeDeleteSet); ok {
 		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
 			return err
 		}
 	}
-	err = db.Where("id in (?)", keys).Delete(&InvestorFundingDetailsORM{}).Error
+	err = db.Where("id in (?)", keys).Delete(&InvestorDetailORM{}).Error
 	if err != nil {
 		return err
 	}
-	if hook, ok := (interface{}(&InvestorFundingDetailsORM{})).(InvestorFundingDetailsORMWithAfterDeleteSet); ok {
+	if hook, ok := (interface{}(&InvestorDetailORM{})).(InvestorDetailORMWithAfterDeleteSet); ok {
 		err = hook.AfterDeleteSet(ctx, in, db)
 	}
 	return err
 }
 
-type InvestorFundingDetailsORMWithBeforeDeleteSet interface {
-	BeforeDeleteSet(context.Context, []*InvestorFundingDetails, *gorm1.DB) (*gorm1.DB, error)
+type InvestorDetailORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*InvestorDetail, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithAfterDeleteSet interface {
-	AfterDeleteSet(context.Context, []*InvestorFundingDetails, *gorm1.DB) error
+type InvestorDetailORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*InvestorDetail, *gorm1.DB) error
 }
 
-// DefaultStrictUpdateInvestorFundingDetails clears first level 1:many children and then executes a gorm update call
-func DefaultStrictUpdateInvestorFundingDetails(ctx context.Context, in *InvestorFundingDetails, db *gorm1.DB) (*InvestorFundingDetails, error) {
+// DefaultStrictUpdateInvestorDetail clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateInvestorDetail(ctx context.Context, in *InvestorDetail, db *gorm1.DB) (*InvestorDetail, error) {
 	if in == nil {
-		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateInvestorFundingDetails")
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateInvestorDetail")
 	}
 	ormObj, err := in.ToORM(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lockedRow := &InvestorFundingDetailsORM{}
+	lockedRow := &InvestorDetailORM{}
 	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeStrictUpdateCleanup); ok {
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeStrictUpdateCleanup); ok {
 		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	filterInvestments := InvestmentORM{}
+	filterInvestmentsId := InvestmentORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterInvestments.InvestorFundingDetailsId = new(uint32)
-	*filterInvestments.InvestorFundingDetailsId = ormObj.Id
-	if err = db.Where(filterInvestments).Delete(InvestmentORM{}).Error; err != nil {
+	filterInvestmentsId.InvestorDetailId = new(uint32)
+	*filterInvestmentsId.InvestorDetailId = ormObj.Id
+	if err = db.Where(filterInvestmentsId).Delete(InvestmentORM{}).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeStrictUpdateSave); ok {
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeStrictUpdateSave); ok {
 		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3284,7 +4801,7 @@ func DefaultStrictUpdateInvestorFundingDetails(ctx context.Context, in *Investor
 	if err = db.Save(&ormObj).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithAfterStrictUpdateSave); ok {
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithAfterStrictUpdateSave); ok {
 		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3296,51 +4813,51 @@ func DefaultStrictUpdateInvestorFundingDetails(ctx context.Context, in *Investor
 	return &pbResponse, err
 }
 
-type InvestorFundingDetailsORMWithBeforeStrictUpdateCleanup interface {
+type InvestorDetailORMWithBeforeStrictUpdateCleanup interface {
 	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithBeforeStrictUpdateSave interface {
+type InvestorDetailORMWithBeforeStrictUpdateSave interface {
 	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithAfterStrictUpdateSave interface {
+type InvestorDetailORMWithAfterStrictUpdateSave interface {
 	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
 }
 
-// DefaultPatchInvestorFundingDetails executes a basic gorm update call with patch behavior
-func DefaultPatchInvestorFundingDetails(ctx context.Context, in *InvestorFundingDetails, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*InvestorFundingDetails, error) {
+// DefaultPatchInvestorDetail executes a basic gorm update call with patch behavior
+func DefaultPatchInvestorDetail(ctx context.Context, in *InvestorDetail, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*InvestorDetail, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
-	var pbObj InvestorFundingDetails
+	var pbObj InvestorDetail
 	var err error
-	if hook, ok := interface{}(&pbObj).(InvestorFundingDetailsWithBeforePatchRead); ok {
+	if hook, ok := interface{}(&pbObj).(InvestorDetailWithBeforePatchRead); ok {
 		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	pbReadRes, err := DefaultReadInvestorFundingDetails(ctx, &InvestorFundingDetails{Id: in.GetId()}, db)
+	pbReadRes, err := DefaultReadInvestorDetail(ctx, &InvestorDetail{Id: in.GetId()}, db)
 	if err != nil {
 		return nil, err
 	}
 	pbObj = *pbReadRes
-	if hook, ok := interface{}(&pbObj).(InvestorFundingDetailsWithBeforePatchApplyFieldMask); ok {
+	if hook, ok := interface{}(&pbObj).(InvestorDetailWithBeforePatchApplyFieldMask); ok {
 		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	if _, err := DefaultApplyFieldMaskInvestorFundingDetails(ctx, &pbObj, in, updateMask, "", db); err != nil {
+	if _, err := DefaultApplyFieldMaskInvestorDetail(ctx, &pbObj, in, updateMask, "", db); err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&pbObj).(InvestorFundingDetailsWithBeforePatchSave); ok {
+	if hook, ok := interface{}(&pbObj).(InvestorDetailWithBeforePatchSave); ok {
 		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	pbResponse, err := DefaultStrictUpdateInvestorFundingDetails(ctx, &pbObj, db)
+	pbResponse, err := DefaultStrictUpdateInvestorDetail(ctx, &pbObj, db)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(pbResponse).(InvestorFundingDetailsWithAfterPatchSave); ok {
+	if hook, ok := interface{}(pbResponse).(InvestorDetailWithAfterPatchSave); ok {
 		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
@@ -3348,28 +4865,28 @@ func DefaultPatchInvestorFundingDetails(ctx context.Context, in *InvestorFunding
 	return pbResponse, nil
 }
 
-type InvestorFundingDetailsWithBeforePatchRead interface {
-	BeforePatchRead(context.Context, *InvestorFundingDetails, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type InvestorDetailWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *InvestorDetail, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsWithBeforePatchApplyFieldMask interface {
-	BeforePatchApplyFieldMask(context.Context, *InvestorFundingDetails, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type InvestorDetailWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *InvestorDetail, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsWithBeforePatchSave interface {
-	BeforePatchSave(context.Context, *InvestorFundingDetails, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type InvestorDetailWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *InvestorDetail, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsWithAfterPatchSave interface {
-	AfterPatchSave(context.Context, *InvestorFundingDetails, *field_mask1.FieldMask, *gorm1.DB) error
+type InvestorDetailWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *InvestorDetail, *field_mask1.FieldMask, *gorm1.DB) error
 }
 
-// DefaultPatchSetInvestorFundingDetails executes a bulk gorm update call with patch behavior
-func DefaultPatchSetInvestorFundingDetails(ctx context.Context, objects []*InvestorFundingDetails, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*InvestorFundingDetails, error) {
+// DefaultPatchSetInvestorDetail executes a bulk gorm update call with patch behavior
+func DefaultPatchSetInvestorDetail(ctx context.Context, objects []*InvestorDetail, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*InvestorDetail, error) {
 	if len(objects) != len(updateMasks) {
 		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
 	}
 
-	results := make([]*InvestorFundingDetails, 0, len(objects))
+	results := make([]*InvestorDetail, 0, len(objects))
 	for i, patcher := range objects {
-		pbResponse, err := DefaultPatchInvestorFundingDetails(ctx, patcher, updateMasks[i], db)
+		pbResponse, err := DefaultPatchInvestorDetail(ctx, patcher, updateMasks[i], db)
 		if err != nil {
 			return nil, err
 		}
@@ -3380,8 +4897,8 @@ func DefaultPatchSetInvestorFundingDetails(ctx context.Context, objects []*Inves
 	return results, nil
 }
 
-// DefaultApplyFieldMaskInvestorFundingDetails patches an pbObject with patcher according to a field mask.
-func DefaultApplyFieldMaskInvestorFundingDetails(ctx context.Context, patchee *InvestorFundingDetails, patcher *InvestorFundingDetails, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*InvestorFundingDetails, error) {
+// DefaultApplyFieldMaskInvestorDetail patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskInvestorDetail(ctx context.Context, patchee *InvestorDetail, patcher *InvestorDetail, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*InvestorDetail, error) {
 	if patcher == nil {
 		return nil, nil
 	} else if patchee == nil {
@@ -3395,6 +4912,10 @@ func DefaultApplyFieldMaskInvestorFundingDetails(ctx context.Context, patchee *I
 		}
 		if f == prefix+"CreatedAt" {
 			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
 			continue
 		}
 		if f == prefix+"UpdatedAt" {
@@ -3413,16 +4934,16 @@ func DefaultApplyFieldMaskInvestorFundingDetails(ctx context.Context, patchee *I
 			patchee.NumberOfExits = patcher.NumberOfExits
 			continue
 		}
-		if f == prefix+"NumberOfinvestments" {
-			patchee.NumberOfinvestments = patcher.NumberOfinvestments
+		if f == prefix+"NumberOfInvestments" {
+			patchee.NumberOfInvestments = patcher.NumberOfInvestments
 			continue
 		}
 		if f == prefix+"NumberOfFunds" {
 			patchee.NumberOfFunds = patcher.NumberOfFunds
 			continue
 		}
-		if f == prefix+"Investments" {
-			patchee.Investments = patcher.Investments
+		if f == prefix+"InvestmentsId" {
+			patchee.InvestmentsId = patcher.InvestmentsId
 			continue
 		}
 	}
@@ -3432,39 +4953,39 @@ func DefaultApplyFieldMaskInvestorFundingDetails(ctx context.Context, patchee *I
 	return patchee, nil
 }
 
-// DefaultListInvestorFundingDetails executes a gorm list call
-func DefaultListInvestorFundingDetails(ctx context.Context, db *gorm1.DB) ([]*InvestorFundingDetails, error) {
-	in := InvestorFundingDetails{}
+// DefaultListInvestorDetail executes a gorm list call
+func DefaultListInvestorDetail(ctx context.Context, db *gorm1.DB) ([]*InvestorDetail, error) {
+	in := InvestorDetail{}
 	ormObj, err := in.ToORM(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeListApplyQuery); ok {
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeListApplyQuery); ok {
 		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	db, err = gorm2.ApplyCollectionOperators(ctx, db, &InvestorFundingDetailsORM{}, &InvestorFundingDetails{}, nil, nil, nil, nil)
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &InvestorDetailORM{}, &InvestorDetail{}, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithBeforeListFind); ok {
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithBeforeListFind); ok {
 		if db, err = hook.BeforeListFind(ctx, db); err != nil {
 			return nil, err
 		}
 	}
 	db = db.Where(&ormObj)
 	db = db.Order("id")
-	ormResponse := []InvestorFundingDetailsORM{}
+	ormResponse := []InvestorDetailORM{}
 	if err := db.Find(&ormResponse).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(InvestorFundingDetailsORMWithAfterListFind); ok {
+	if hook, ok := interface{}(&ormObj).(InvestorDetailORMWithAfterListFind); ok {
 		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
 			return nil, err
 		}
 	}
-	pbResponse := []*InvestorFundingDetails{}
+	pbResponse := []*InvestorDetail{}
 	for _, responseEntry := range ormResponse {
 		temp, err := responseEntry.ToPB(ctx)
 		if err != nil {
@@ -3475,18 +4996,18 @@ func DefaultListInvestorFundingDetails(ctx context.Context, db *gorm1.DB) ([]*In
 	return pbResponse, nil
 }
 
-type InvestorFundingDetailsORMWithBeforeListApplyQuery interface {
+type InvestorDetailORMWithBeforeListApplyQuery interface {
 	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithBeforeListFind interface {
+type InvestorDetailORMWithBeforeListFind interface {
 	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type InvestorFundingDetailsORMWithAfterListFind interface {
-	AfterListFind(context.Context, *gorm1.DB, *[]InvestorFundingDetailsORM) error
+type InvestorDetailORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]InvestorDetailORM) error
 }
 
-// DefaultCreateStartupFundingDetails executes a basic gorm create call
-func DefaultCreateStartupFundingDetails(ctx context.Context, in *StartupFundingDetails, db *gorm1.DB) (*StartupFundingDetails, error) {
+// DefaultCreateStartupDetail executes a basic gorm create call
+func DefaultCreateStartupDetail(ctx context.Context, in *StartupDetail, db *gorm1.DB) (*StartupDetail, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
@@ -3494,7 +5015,7 @@ func DefaultCreateStartupFundingDetails(ctx context.Context, in *StartupFundingD
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeCreate_); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeCreate_); ok {
 		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3502,7 +5023,7 @@ func DefaultCreateStartupFundingDetails(ctx context.Context, in *StartupFundingD
 	if err = db.Create(&ormObj).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithAfterCreate_); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithAfterCreate_); ok {
 		if err = hook.AfterCreate_(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3511,15 +5032,15 @@ func DefaultCreateStartupFundingDetails(ctx context.Context, in *StartupFundingD
 	return &pbResponse, err
 }
 
-type StartupFundingDetailsORMWithBeforeCreate_ interface {
+type StartupDetailORMWithBeforeCreate_ interface {
 	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithAfterCreate_ interface {
+type StartupDetailORMWithAfterCreate_ interface {
 	AfterCreate_(context.Context, *gorm1.DB) error
 }
 
-// DefaultReadStartupFundingDetails executes a basic gorm read call
-func DefaultReadStartupFundingDetails(ctx context.Context, in *StartupFundingDetails, db *gorm1.DB) (*StartupFundingDetails, error) {
+// DefaultReadStartupDetail executes a basic gorm read call
+func DefaultReadStartupDetail(ctx context.Context, in *StartupDetail, db *gorm1.DB) (*StartupDetail, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
@@ -3530,24 +5051,24 @@ func DefaultReadStartupFundingDetails(ctx context.Context, in *StartupFundingDet
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeReadApplyQuery); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeReadApplyQuery); ok {
 		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &StartupFundingDetailsORM{}); err != nil {
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &StartupDetailORM{}); err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeReadFind); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeReadFind); ok {
 		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	ormResponse := StartupFundingDetailsORM{}
+	ormResponse := StartupDetailORM{}
 	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormResponse).(StartupFundingDetailsORMWithAfterReadFind); ok {
+	if hook, ok := interface{}(&ormResponse).(StartupDetailORMWithAfterReadFind); ok {
 		if err = hook.AfterReadFind(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3556,17 +5077,17 @@ func DefaultReadStartupFundingDetails(ctx context.Context, in *StartupFundingDet
 	return &pbResponse, err
 }
 
-type StartupFundingDetailsORMWithBeforeReadApplyQuery interface {
+type StartupDetailORMWithBeforeReadApplyQuery interface {
 	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithBeforeReadFind interface {
+type StartupDetailORMWithBeforeReadFind interface {
 	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithAfterReadFind interface {
+type StartupDetailORMWithAfterReadFind interface {
 	AfterReadFind(context.Context, *gorm1.DB) error
 }
 
-func DefaultDeleteStartupFundingDetails(ctx context.Context, in *StartupFundingDetails, db *gorm1.DB) error {
+func DefaultDeleteStartupDetail(ctx context.Context, in *StartupDetail, db *gorm1.DB) error {
 	if in == nil {
 		return errors1.NilArgumentError
 	}
@@ -3577,29 +5098,29 @@ func DefaultDeleteStartupFundingDetails(ctx context.Context, in *StartupFundingD
 	if ormObj.Id == 0 {
 		return errors1.EmptyIdError
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeDelete_); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeDelete_); ok {
 		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
 			return err
 		}
 	}
-	err = db.Where(&ormObj).Delete(&StartupFundingDetailsORM{}).Error
+	err = db.Where(&ormObj).Delete(&StartupDetailORM{}).Error
 	if err != nil {
 		return err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithAfterDelete_); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithAfterDelete_); ok {
 		err = hook.AfterDelete_(ctx, db)
 	}
 	return err
 }
 
-type StartupFundingDetailsORMWithBeforeDelete_ interface {
+type StartupDetailORMWithBeforeDelete_ interface {
 	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithAfterDelete_ interface {
+type StartupDetailORMWithAfterDelete_ interface {
 	AfterDelete_(context.Context, *gorm1.DB) error
 }
 
-func DefaultDeleteStartupFundingDetailsSet(ctx context.Context, in []*StartupFundingDetails, db *gorm1.DB) error {
+func DefaultDeleteStartupDetailSet(ctx context.Context, in []*StartupDetail, db *gorm1.DB) error {
 	if in == nil {
 		return errors1.NilArgumentError
 	}
@@ -3615,63 +5136,45 @@ func DefaultDeleteStartupFundingDetailsSet(ctx context.Context, in []*StartupFun
 		}
 		keys = append(keys, ormObj.Id)
 	}
-	if hook, ok := (interface{}(&StartupFundingDetailsORM{})).(StartupFundingDetailsORMWithBeforeDeleteSet); ok {
+	if hook, ok := (interface{}(&StartupDetailORM{})).(StartupDetailORMWithBeforeDeleteSet); ok {
 		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
 			return err
 		}
 	}
-	err = db.Where("id in (?)", keys).Delete(&StartupFundingDetailsORM{}).Error
+	err = db.Where("id in (?)", keys).Delete(&StartupDetailORM{}).Error
 	if err != nil {
 		return err
 	}
-	if hook, ok := (interface{}(&StartupFundingDetailsORM{})).(StartupFundingDetailsORMWithAfterDeleteSet); ok {
+	if hook, ok := (interface{}(&StartupDetailORM{})).(StartupDetailORMWithAfterDeleteSet); ok {
 		err = hook.AfterDeleteSet(ctx, in, db)
 	}
 	return err
 }
 
-type StartupFundingDetailsORMWithBeforeDeleteSet interface {
-	BeforeDeleteSet(context.Context, []*StartupFundingDetails, *gorm1.DB) (*gorm1.DB, error)
+type StartupDetailORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*StartupDetail, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithAfterDeleteSet interface {
-	AfterDeleteSet(context.Context, []*StartupFundingDetails, *gorm1.DB) error
+type StartupDetailORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*StartupDetail, *gorm1.DB) error
 }
 
-// DefaultStrictUpdateStartupFundingDetails clears first level 1:many children and then executes a gorm update call
-func DefaultStrictUpdateStartupFundingDetails(ctx context.Context, in *StartupFundingDetails, db *gorm1.DB) (*StartupFundingDetails, error) {
+// DefaultStrictUpdateStartupDetail clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateStartupDetail(ctx context.Context, in *StartupDetail, db *gorm1.DB) (*StartupDetail, error) {
 	if in == nil {
-		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateStartupFundingDetails")
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateStartupDetail")
 	}
 	ormObj, err := in.ToORM(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lockedRow := &StartupFundingDetailsORM{}
+	lockedRow := &StartupDetailORM{}
 	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeStrictUpdateCleanup); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeStrictUpdateCleanup); ok {
 		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	filterCompanyDetails := DetailsORM{}
-	if ormObj.Id == 0 {
-		return nil, errors1.EmptyIdError
-	}
-	filterCompanyDetails.StartupFundingDetailsId = new(uint32)
-	*filterCompanyDetails.StartupFundingDetailsId = ormObj.Id
-	if err = db.Where(filterCompanyDetails).Delete(DetailsORM{}).Error; err != nil {
-		return nil, err
-	}
-	filterFunding := FundingORM{}
-	if ormObj.Id == 0 {
-		return nil, errors1.EmptyIdError
-	}
-	filterFunding.StartupFundingDetailsId = new(uint32)
-	*filterFunding.StartupFundingDetailsId = ormObj.Id
-	if err = db.Where(filterFunding).Delete(FundingORM{}).Error; err != nil {
-		return nil, err
-	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeStrictUpdateSave); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeStrictUpdateSave); ok {
 		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3679,7 +5182,7 @@ func DefaultStrictUpdateStartupFundingDetails(ctx context.Context, in *StartupFu
 	if err = db.Save(&ormObj).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithAfterStrictUpdateSave); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithAfterStrictUpdateSave); ok {
 		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3691,51 +5194,51 @@ func DefaultStrictUpdateStartupFundingDetails(ctx context.Context, in *StartupFu
 	return &pbResponse, err
 }
 
-type StartupFundingDetailsORMWithBeforeStrictUpdateCleanup interface {
+type StartupDetailORMWithBeforeStrictUpdateCleanup interface {
 	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithBeforeStrictUpdateSave interface {
+type StartupDetailORMWithBeforeStrictUpdateSave interface {
 	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithAfterStrictUpdateSave interface {
+type StartupDetailORMWithAfterStrictUpdateSave interface {
 	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
 }
 
-// DefaultPatchStartupFundingDetails executes a basic gorm update call with patch behavior
-func DefaultPatchStartupFundingDetails(ctx context.Context, in *StartupFundingDetails, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*StartupFundingDetails, error) {
+// DefaultPatchStartupDetail executes a basic gorm update call with patch behavior
+func DefaultPatchStartupDetail(ctx context.Context, in *StartupDetail, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*StartupDetail, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
-	var pbObj StartupFundingDetails
+	var pbObj StartupDetail
 	var err error
-	if hook, ok := interface{}(&pbObj).(StartupFundingDetailsWithBeforePatchRead); ok {
+	if hook, ok := interface{}(&pbObj).(StartupDetailWithBeforePatchRead); ok {
 		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	pbReadRes, err := DefaultReadStartupFundingDetails(ctx, &StartupFundingDetails{Id: in.GetId()}, db)
+	pbReadRes, err := DefaultReadStartupDetail(ctx, &StartupDetail{Id: in.GetId()}, db)
 	if err != nil {
 		return nil, err
 	}
 	pbObj = *pbReadRes
-	if hook, ok := interface{}(&pbObj).(StartupFundingDetailsWithBeforePatchApplyFieldMask); ok {
+	if hook, ok := interface{}(&pbObj).(StartupDetailWithBeforePatchApplyFieldMask); ok {
 		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	if _, err := DefaultApplyFieldMaskStartupFundingDetails(ctx, &pbObj, in, updateMask, "", db); err != nil {
+	if _, err := DefaultApplyFieldMaskStartupDetail(ctx, &pbObj, in, updateMask, "", db); err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&pbObj).(StartupFundingDetailsWithBeforePatchSave); ok {
+	if hook, ok := interface{}(&pbObj).(StartupDetailWithBeforePatchSave); ok {
 		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	pbResponse, err := DefaultStrictUpdateStartupFundingDetails(ctx, &pbObj, db)
+	pbResponse, err := DefaultStrictUpdateStartupDetail(ctx, &pbObj, db)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(pbResponse).(StartupFundingDetailsWithAfterPatchSave); ok {
+	if hook, ok := interface{}(pbResponse).(StartupDetailWithAfterPatchSave); ok {
 		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
@@ -3743,28 +5246,28 @@ func DefaultPatchStartupFundingDetails(ctx context.Context, in *StartupFundingDe
 	return pbResponse, nil
 }
 
-type StartupFundingDetailsWithBeforePatchRead interface {
-	BeforePatchRead(context.Context, *StartupFundingDetails, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type StartupDetailWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *StartupDetail, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsWithBeforePatchApplyFieldMask interface {
-	BeforePatchApplyFieldMask(context.Context, *StartupFundingDetails, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type StartupDetailWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *StartupDetail, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsWithBeforePatchSave interface {
-	BeforePatchSave(context.Context, *StartupFundingDetails, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type StartupDetailWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *StartupDetail, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsWithAfterPatchSave interface {
-	AfterPatchSave(context.Context, *StartupFundingDetails, *field_mask1.FieldMask, *gorm1.DB) error
+type StartupDetailWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *StartupDetail, *field_mask1.FieldMask, *gorm1.DB) error
 }
 
-// DefaultPatchSetStartupFundingDetails executes a bulk gorm update call with patch behavior
-func DefaultPatchSetStartupFundingDetails(ctx context.Context, objects []*StartupFundingDetails, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*StartupFundingDetails, error) {
+// DefaultPatchSetStartupDetail executes a bulk gorm update call with patch behavior
+func DefaultPatchSetStartupDetail(ctx context.Context, objects []*StartupDetail, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*StartupDetail, error) {
 	if len(objects) != len(updateMasks) {
 		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
 	}
 
-	results := make([]*StartupFundingDetails, 0, len(objects))
+	results := make([]*StartupDetail, 0, len(objects))
 	for i, patcher := range objects {
-		pbResponse, err := DefaultPatchStartupFundingDetails(ctx, patcher, updateMasks[i], db)
+		pbResponse, err := DefaultPatchStartupDetail(ctx, patcher, updateMasks[i], db)
 		if err != nil {
 			return nil, err
 		}
@@ -3775,17 +5278,15 @@ func DefaultPatchSetStartupFundingDetails(ctx context.Context, objects []*Startu
 	return results, nil
 }
 
-// DefaultApplyFieldMaskStartupFundingDetails patches an pbObject with patcher according to a field mask.
-func DefaultApplyFieldMaskStartupFundingDetails(ctx context.Context, patchee *StartupFundingDetails, patcher *StartupFundingDetails, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*StartupFundingDetails, error) {
+// DefaultApplyFieldMaskStartupDetail patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskStartupDetail(ctx context.Context, patchee *StartupDetail, patcher *StartupDetail, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*StartupDetail, error) {
 	if patcher == nil {
 		return nil, nil
 	} else if patchee == nil {
 		return nil, errors1.NilArgumentError
 	}
 	var err error
-	var updatedFunding bool
-	var updatedCompanyDetails bool
-	for i, f := range updateMask.Paths {
+	for _, f := range updateMask.Paths {
 		if f == prefix+"Id" {
 			patchee.Id = patcher.Id
 			continue
@@ -3794,50 +5295,36 @@ func DefaultApplyFieldMaskStartupFundingDetails(ctx context.Context, patchee *St
 			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
 		if f == prefix+"UpdatedAt" {
 			patchee.UpdatedAt = patcher.UpdatedAt
 			continue
 		}
-		if !updatedFunding && strings.HasPrefix(f, prefix+"Funding.") {
-			updatedFunding = true
-			if patcher.Funding == nil {
-				patchee.Funding = nil
-				continue
-			}
-			if patchee.Funding == nil {
-				patchee.Funding = &Funding{}
-			}
-			if o, err := DefaultApplyFieldMaskFunding(ctx, patchee.Funding, patcher.Funding, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Funding.", db); err != nil {
-				return nil, err
-			} else {
-				patchee.Funding = o
-			}
+		if f == prefix+"TotalFunding" {
+			patchee.TotalFunding = patcher.TotalFunding
 			continue
 		}
-		if f == prefix+"Funding" {
-			updatedFunding = true
-			patchee.Funding = patcher.Funding
+		if f == prefix+"LatestRoundFunding" {
+			patchee.LatestRoundFunding = patcher.LatestRoundFunding
 			continue
 		}
-		if !updatedCompanyDetails && strings.HasPrefix(f, prefix+"CompanyDetails.") {
-			updatedCompanyDetails = true
-			if patcher.CompanyDetails == nil {
-				patchee.CompanyDetails = nil
-				continue
-			}
-			if patchee.CompanyDetails == nil {
-				patchee.CompanyDetails = &Details{}
-			}
-			if o, err := DefaultApplyFieldMaskDetails(ctx, patchee.CompanyDetails, patcher.CompanyDetails, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"CompanyDetails.", db); err != nil {
-				return nil, err
-			} else {
-				patchee.CompanyDetails = o
-			}
+		if f == prefix+"LatestRound" {
+			patchee.LatestRound = patcher.LatestRound
 			continue
 		}
-		if f == prefix+"CompanyDetails" {
-			updatedCompanyDetails = true
-			patchee.CompanyDetails = patcher.CompanyDetails
+		if f == prefix+"LatestRoundEndDate" {
+			patchee.LatestRoundEndDate = patcher.LatestRoundEndDate
+			continue
+		}
+		if f == prefix+"FundingType" {
+			patchee.FundingType = patcher.FundingType
+			continue
+		}
+		if f == prefix+"CompanyName" {
+			patchee.CompanyName = patcher.CompanyName
 			continue
 		}
 	}
@@ -3847,39 +5334,39 @@ func DefaultApplyFieldMaskStartupFundingDetails(ctx context.Context, patchee *St
 	return patchee, nil
 }
 
-// DefaultListStartupFundingDetails executes a gorm list call
-func DefaultListStartupFundingDetails(ctx context.Context, db *gorm1.DB) ([]*StartupFundingDetails, error) {
-	in := StartupFundingDetails{}
+// DefaultListStartupDetail executes a gorm list call
+func DefaultListStartupDetail(ctx context.Context, db *gorm1.DB) ([]*StartupDetail, error) {
+	in := StartupDetail{}
 	ormObj, err := in.ToORM(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeListApplyQuery); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeListApplyQuery); ok {
 		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	db, err = gorm2.ApplyCollectionOperators(ctx, db, &StartupFundingDetailsORM{}, &StartupFundingDetails{}, nil, nil, nil, nil)
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &StartupDetailORM{}, &StartupDetail{}, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithBeforeListFind); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithBeforeListFind); ok {
 		if db, err = hook.BeforeListFind(ctx, db); err != nil {
 			return nil, err
 		}
 	}
 	db = db.Where(&ormObj)
 	db = db.Order("id")
-	ormResponse := []StartupFundingDetailsORM{}
+	ormResponse := []StartupDetailORM{}
 	if err := db.Find(&ormResponse).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(StartupFundingDetailsORMWithAfterListFind); ok {
+	if hook, ok := interface{}(&ormObj).(StartupDetailORMWithAfterListFind); ok {
 		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
 			return nil, err
 		}
 	}
-	pbResponse := []*StartupFundingDetails{}
+	pbResponse := []*StartupDetail{}
 	for _, responseEntry := range ormResponse {
 		temp, err := responseEntry.ToPB(ctx)
 		if err != nil {
@@ -3890,18 +5377,18 @@ func DefaultListStartupFundingDetails(ctx context.Context, db *gorm1.DB) ([]*Sta
 	return pbResponse, nil
 }
 
-type StartupFundingDetailsORMWithBeforeListApplyQuery interface {
+type StartupDetailORMWithBeforeListApplyQuery interface {
 	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithBeforeListFind interface {
+type StartupDetailORMWithBeforeListFind interface {
 	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type StartupFundingDetailsORMWithAfterListFind interface {
-	AfterListFind(context.Context, *gorm1.DB, *[]StartupFundingDetailsORM) error
+type StartupDetailORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]StartupDetailORM) error
 }
 
-// DefaultCreateFunding executes a basic gorm create call
-func DefaultCreateFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Funding, error) {
+// DefaultCreateSettings executes a basic gorm create call
+func DefaultCreateSettings(ctx context.Context, in *Settings, db *gorm1.DB) (*Settings, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
@@ -3909,7 +5396,7 @@ func DefaultCreateFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Fund
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeCreate_); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeCreate_); ok {
 		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3917,7 +5404,7 @@ func DefaultCreateFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Fund
 	if err = db.Create(&ormObj).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithAfterCreate_); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithAfterCreate_); ok {
 		if err = hook.AfterCreate_(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3926,15 +5413,15 @@ func DefaultCreateFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Fund
 	return &pbResponse, err
 }
 
-type FundingORMWithBeforeCreate_ interface {
+type SettingsORMWithBeforeCreate_ interface {
 	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithAfterCreate_ interface {
+type SettingsORMWithAfterCreate_ interface {
 	AfterCreate_(context.Context, *gorm1.DB) error
 }
 
-// DefaultReadFunding executes a basic gorm read call
-func DefaultReadFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Funding, error) {
+// DefaultReadSettings executes a basic gorm read call
+func DefaultReadSettings(ctx context.Context, in *Settings, db *gorm1.DB) (*Settings, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
@@ -3945,24 +5432,24 @@ func DefaultReadFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Fundin
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeReadApplyQuery); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeReadApplyQuery); ok {
 		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &FundingORM{}); err != nil {
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &SettingsORM{}); err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeReadFind); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeReadFind); ok {
 		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	ormResponse := FundingORM{}
+	ormResponse := SettingsORM{}
 	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormResponse).(FundingORMWithAfterReadFind); ok {
+	if hook, ok := interface{}(&ormResponse).(SettingsORMWithAfterReadFind); ok {
 		if err = hook.AfterReadFind(ctx, db); err != nil {
 			return nil, err
 		}
@@ -3971,17 +5458,17 @@ func DefaultReadFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Fundin
 	return &pbResponse, err
 }
 
-type FundingORMWithBeforeReadApplyQuery interface {
+type SettingsORMWithBeforeReadApplyQuery interface {
 	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithBeforeReadFind interface {
+type SettingsORMWithBeforeReadFind interface {
 	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithAfterReadFind interface {
+type SettingsORMWithAfterReadFind interface {
 	AfterReadFind(context.Context, *gorm1.DB) error
 }
 
-func DefaultDeleteFunding(ctx context.Context, in *Funding, db *gorm1.DB) error {
+func DefaultDeleteSettings(ctx context.Context, in *Settings, db *gorm1.DB) error {
 	if in == nil {
 		return errors1.NilArgumentError
 	}
@@ -3992,29 +5479,29 @@ func DefaultDeleteFunding(ctx context.Context, in *Funding, db *gorm1.DB) error 
 	if ormObj.Id == 0 {
 		return errors1.EmptyIdError
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeDelete_); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeDelete_); ok {
 		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
 			return err
 		}
 	}
-	err = db.Where(&ormObj).Delete(&FundingORM{}).Error
+	err = db.Where(&ormObj).Delete(&SettingsORM{}).Error
 	if err != nil {
 		return err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithAfterDelete_); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithAfterDelete_); ok {
 		err = hook.AfterDelete_(ctx, db)
 	}
 	return err
 }
 
-type FundingORMWithBeforeDelete_ interface {
+type SettingsORMWithBeforeDelete_ interface {
 	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithAfterDelete_ interface {
+type SettingsORMWithAfterDelete_ interface {
 	AfterDelete_(context.Context, *gorm1.DB) error
 }
 
-func DefaultDeleteFundingSet(ctx context.Context, in []*Funding, db *gorm1.DB) error {
+func DefaultDeleteSettingsSet(ctx context.Context, in []*Settings, db *gorm1.DB) error {
 	if in == nil {
 		return errors1.NilArgumentError
 	}
@@ -4030,54 +5517,63 @@ func DefaultDeleteFundingSet(ctx context.Context, in []*Funding, db *gorm1.DB) e
 		}
 		keys = append(keys, ormObj.Id)
 	}
-	if hook, ok := (interface{}(&FundingORM{})).(FundingORMWithBeforeDeleteSet); ok {
+	if hook, ok := (interface{}(&SettingsORM{})).(SettingsORMWithBeforeDeleteSet); ok {
 		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
 			return err
 		}
 	}
-	err = db.Where("id in (?)", keys).Delete(&FundingORM{}).Error
+	err = db.Where("id in (?)", keys).Delete(&SettingsORM{}).Error
 	if err != nil {
 		return err
 	}
-	if hook, ok := (interface{}(&FundingORM{})).(FundingORMWithAfterDeleteSet); ok {
+	if hook, ok := (interface{}(&SettingsORM{})).(SettingsORMWithAfterDeleteSet); ok {
 		err = hook.AfterDeleteSet(ctx, in, db)
 	}
 	return err
 }
 
-type FundingORMWithBeforeDeleteSet interface {
-	BeforeDeleteSet(context.Context, []*Funding, *gorm1.DB) (*gorm1.DB, error)
+type SettingsORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*Settings, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithAfterDeleteSet interface {
-	AfterDeleteSet(context.Context, []*Funding, *gorm1.DB) error
+type SettingsORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*Settings, *gorm1.DB) error
 }
 
-// DefaultStrictUpdateFunding clears first level 1:many children and then executes a gorm update call
-func DefaultStrictUpdateFunding(ctx context.Context, in *Funding, db *gorm1.DB) (*Funding, error) {
+// DefaultStrictUpdateSettings clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateSettings(ctx context.Context, in *Settings, db *gorm1.DB) (*Settings, error) {
 	if in == nil {
-		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateFunding")
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateSettings")
 	}
 	ormObj, err := in.ToORM(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lockedRow := &FundingORM{}
+	lockedRow := &SettingsORM{}
 	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeStrictUpdateCleanup); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeStrictUpdateCleanup); ok {
 		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	filterInvestors := ProfileORM{}
+	filterNotificationId := NotificationORM{}
 	if ormObj.Id == 0 {
 		return nil, errors1.EmptyIdError
 	}
-	filterInvestors.FundingId = new(int32)
-	*filterInvestors.FundingId = ormObj.Id
-	if err = db.Where(filterInvestors).Delete(ProfileORM{}).Error; err != nil {
+	filterNotificationId.SettingsId = new(int32)
+	*filterNotificationId.SettingsId = ormObj.Id
+	if err = db.Where(filterNotificationId).Delete(NotificationORM{}).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeStrictUpdateSave); ok {
+	filterPaymentId := PaymentsORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterPaymentId.SettingsId = new(int32)
+	*filterPaymentId.SettingsId = ormObj.Id
+	if err = db.Where(filterPaymentId).Delete(PaymentsORM{}).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeStrictUpdateSave); ok {
 		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
 		}
@@ -4085,7 +5581,7 @@ func DefaultStrictUpdateFunding(ctx context.Context, in *Funding, db *gorm1.DB) 
 	if err = db.Save(&ormObj).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithAfterStrictUpdateSave); ok {
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithAfterStrictUpdateSave); ok {
 		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
 			return nil, err
 		}
@@ -4097,51 +5593,51 @@ func DefaultStrictUpdateFunding(ctx context.Context, in *Funding, db *gorm1.DB) 
 	return &pbResponse, err
 }
 
-type FundingORMWithBeforeStrictUpdateCleanup interface {
+type SettingsORMWithBeforeStrictUpdateCleanup interface {
 	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithBeforeStrictUpdateSave interface {
+type SettingsORMWithBeforeStrictUpdateSave interface {
 	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithAfterStrictUpdateSave interface {
+type SettingsORMWithAfterStrictUpdateSave interface {
 	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
 }
 
-// DefaultPatchFunding executes a basic gorm update call with patch behavior
-func DefaultPatchFunding(ctx context.Context, in *Funding, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*Funding, error) {
+// DefaultPatchSettings executes a basic gorm update call with patch behavior
+func DefaultPatchSettings(ctx context.Context, in *Settings, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*Settings, error) {
 	if in == nil {
 		return nil, errors1.NilArgumentError
 	}
-	var pbObj Funding
+	var pbObj Settings
 	var err error
-	if hook, ok := interface{}(&pbObj).(FundingWithBeforePatchRead); ok {
+	if hook, ok := interface{}(&pbObj).(SettingsWithBeforePatchRead); ok {
 		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	pbReadRes, err := DefaultReadFunding(ctx, &Funding{Id: in.GetId()}, db)
+	pbReadRes, err := DefaultReadSettings(ctx, &Settings{Id: in.GetId()}, db)
 	if err != nil {
 		return nil, err
 	}
 	pbObj = *pbReadRes
-	if hook, ok := interface{}(&pbObj).(FundingWithBeforePatchApplyFieldMask); ok {
+	if hook, ok := interface{}(&pbObj).(SettingsWithBeforePatchApplyFieldMask); ok {
 		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	if _, err := DefaultApplyFieldMaskFunding(ctx, &pbObj, in, updateMask, "", db); err != nil {
+	if _, err := DefaultApplyFieldMaskSettings(ctx, &pbObj, in, updateMask, "", db); err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&pbObj).(FundingWithBeforePatchSave); ok {
+	if hook, ok := interface{}(&pbObj).(SettingsWithBeforePatchSave); ok {
 		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
 	}
-	pbResponse, err := DefaultStrictUpdateFunding(ctx, &pbObj, db)
+	pbResponse, err := DefaultStrictUpdateSettings(ctx, &pbObj, db)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(pbResponse).(FundingWithAfterPatchSave); ok {
+	if hook, ok := interface{}(pbResponse).(SettingsWithAfterPatchSave); ok {
 		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
 			return nil, err
 		}
@@ -4149,28 +5645,28 @@ func DefaultPatchFunding(ctx context.Context, in *Funding, updateMask *field_mas
 	return pbResponse, nil
 }
 
-type FundingWithBeforePatchRead interface {
-	BeforePatchRead(context.Context, *Funding, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type SettingsWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *Settings, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingWithBeforePatchApplyFieldMask interface {
-	BeforePatchApplyFieldMask(context.Context, *Funding, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type SettingsWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *Settings, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingWithBeforePatchSave interface {
-	BeforePatchSave(context.Context, *Funding, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+type SettingsWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *Settings, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingWithAfterPatchSave interface {
-	AfterPatchSave(context.Context, *Funding, *field_mask1.FieldMask, *gorm1.DB) error
+type SettingsWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *Settings, *field_mask1.FieldMask, *gorm1.DB) error
 }
 
-// DefaultPatchSetFunding executes a bulk gorm update call with patch behavior
-func DefaultPatchSetFunding(ctx context.Context, objects []*Funding, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*Funding, error) {
+// DefaultPatchSetSettings executes a bulk gorm update call with patch behavior
+func DefaultPatchSetSettings(ctx context.Context, objects []*Settings, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*Settings, error) {
 	if len(objects) != len(updateMasks) {
 		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
 	}
 
-	results := make([]*Funding, 0, len(objects))
+	results := make([]*Settings, 0, len(objects))
 	for i, patcher := range objects {
-		pbResponse, err := DefaultPatchFunding(ctx, patcher, updateMasks[i], db)
+		pbResponse, err := DefaultPatchSettings(ctx, patcher, updateMasks[i], db)
 		if err != nil {
 			return nil, err
 		}
@@ -4181,8 +5677,1275 @@ func DefaultPatchSetFunding(ctx context.Context, objects []*Funding, updateMasks
 	return results, nil
 }
 
-// DefaultApplyFieldMaskFunding patches an pbObject with patcher according to a field mask.
-func DefaultApplyFieldMaskFunding(ctx context.Context, patchee *Funding, patcher *Funding, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*Funding, error) {
+// DefaultApplyFieldMaskSettings patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskSettings(ctx context.Context, patchee *Settings, patcher *Settings, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*Settings, error) {
+	if patcher == nil {
+		return nil, nil
+	} else if patchee == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var err error
+	var updatedNotificationId bool
+	var updatedPrivacyId bool
+	var updatedPaymentId bool
+	for i, f := range updateMask.Paths {
+		if f == prefix+"Id" {
+			patchee.Id = patcher.Id
+			continue
+		}
+		if f == prefix+"CreatedAt" {
+			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
+		if f == prefix+"LastLogin" {
+			patchee.LastLogin = patcher.LastLogin
+			continue
+		}
+		if f == prefix+"LastLoginLocation" {
+			patchee.LastLoginLocation = patcher.LastLoginLocation
+			continue
+		}
+		if !updatedNotificationId && strings.HasPrefix(f, prefix+"NotificationId.") {
+			updatedNotificationId = true
+			if patcher.NotificationId == nil {
+				patchee.NotificationId = nil
+				continue
+			}
+			if patchee.NotificationId == nil {
+				patchee.NotificationId = &Notification{}
+			}
+			if o, err := DefaultApplyFieldMaskNotification(ctx, patchee.NotificationId, patcher.NotificationId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"NotificationId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.NotificationId = o
+			}
+			continue
+		}
+		if f == prefix+"NotificationId" {
+			updatedNotificationId = true
+			patchee.NotificationId = patcher.NotificationId
+			continue
+		}
+		if !updatedPrivacyId && strings.HasPrefix(f, prefix+"PrivacyId.") {
+			if patcher.PrivacyId == nil {
+				patchee.PrivacyId = nil
+				continue
+			}
+			if patchee.PrivacyId == nil {
+				patchee.PrivacyId = &Privacy{}
+			}
+			childMask := &field_mask1.FieldMask{}
+			for j := i; j < len(updateMask.Paths); j++ {
+				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"PrivacyId."); trimPath != updateMask.Paths[j] {
+					childMask.Paths = append(childMask.Paths, trimPath)
+				}
+			}
+			if err := gorm2.MergeWithMask(patcher.PrivacyId, patchee.PrivacyId, childMask); err != nil {
+				return nil, nil
+			}
+		}
+		if f == prefix+"PrivacyId" {
+			updatedPrivacyId = true
+			patchee.PrivacyId = patcher.PrivacyId
+			continue
+		}
+		if !updatedPaymentId && strings.HasPrefix(f, prefix+"PaymentId.") {
+			updatedPaymentId = true
+			if patcher.PaymentId == nil {
+				patchee.PaymentId = nil
+				continue
+			}
+			if patchee.PaymentId == nil {
+				patchee.PaymentId = &Payments{}
+			}
+			if o, err := DefaultApplyFieldMaskPayments(ctx, patchee.PaymentId, patcher.PaymentId, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"PaymentId.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.PaymentId = o
+			}
+			continue
+		}
+		if f == prefix+"PaymentId" {
+			updatedPaymentId = true
+			patchee.PaymentId = patcher.PaymentId
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return patchee, nil
+}
+
+// DefaultListSettings executes a gorm list call
+func DefaultListSettings(ctx context.Context, db *gorm1.DB) ([]*Settings, error) {
+	in := Settings{}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeListApplyQuery); ok {
+		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &SettingsORM{}, &Settings{}, nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithBeforeListFind); ok {
+		if db, err = hook.BeforeListFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db = db.Where(&ormObj)
+	db = db.Order("id")
+	ormResponse := []SettingsORM{}
+	if err := db.Find(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(SettingsORMWithAfterListFind); ok {
+		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse := []*Settings{}
+	for _, responseEntry := range ormResponse {
+		temp, err := responseEntry.ToPB(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pbResponse = append(pbResponse, &temp)
+	}
+	return pbResponse, nil
+}
+
+type SettingsORMWithBeforeListApplyQuery interface {
+	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type SettingsORMWithBeforeListFind interface {
+	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type SettingsORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]SettingsORM) error
+}
+
+// DefaultCreateLoginActivity executes a basic gorm create call
+func DefaultCreateLoginActivity(ctx context.Context, in *LoginActivity, db *gorm1.DB) (*LoginActivity, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeCreate_); ok {
+		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Create(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithAfterCreate_); ok {
+		if err = hook.AfterCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type LoginActivityORMWithBeforeCreate_ interface {
+	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithAfterCreate_ interface {
+	AfterCreate_(context.Context, *gorm1.DB) error
+}
+
+// DefaultReadLoginActivity executes a basic gorm read call
+func DefaultReadLoginActivity(ctx context.Context, in *LoginActivity, db *gorm1.DB) (*LoginActivity, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeReadApplyQuery); ok {
+		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &LoginActivityORM{}); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeReadFind); ok {
+		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	ormResponse := LoginActivityORM{}
+	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormResponse).(LoginActivityORMWithAfterReadFind); ok {
+		if err = hook.AfterReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormResponse.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type LoginActivityORMWithBeforeReadApplyQuery interface {
+	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithBeforeReadFind interface {
+	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithAfterReadFind interface {
+	AfterReadFind(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteLoginActivity(ctx context.Context, in *LoginActivity, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return err
+	}
+	if ormObj.Id == 0 {
+		return errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeDelete_); ok {
+		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where(&ormObj).Delete(&LoginActivityORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithAfterDelete_); ok {
+		err = hook.AfterDelete_(ctx, db)
+	}
+	return err
+}
+
+type LoginActivityORMWithBeforeDelete_ interface {
+	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithAfterDelete_ interface {
+	AfterDelete_(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteLoginActivitySet(ctx context.Context, in []*LoginActivity, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	var err error
+	keys := []int32{}
+	for _, obj := range in {
+		ormObj, err := obj.ToORM(ctx)
+		if err != nil {
+			return err
+		}
+		if ormObj.Id == 0 {
+			return errors1.EmptyIdError
+		}
+		keys = append(keys, ormObj.Id)
+	}
+	if hook, ok := (interface{}(&LoginActivityORM{})).(LoginActivityORMWithBeforeDeleteSet); ok {
+		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where("id in (?)", keys).Delete(&LoginActivityORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := (interface{}(&LoginActivityORM{})).(LoginActivityORMWithAfterDeleteSet); ok {
+		err = hook.AfterDeleteSet(ctx, in, db)
+	}
+	return err
+}
+
+type LoginActivityORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*LoginActivity, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*LoginActivity, *gorm1.DB) error
+}
+
+// DefaultStrictUpdateLoginActivity clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateLoginActivity(ctx context.Context, in *LoginActivity, db *gorm1.DB) (*LoginActivity, error) {
+	if in == nil {
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateLoginActivity")
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lockedRow := &LoginActivityORM{}
+	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeStrictUpdateCleanup); ok {
+		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	filterLocation := AddressORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterLocation.LoginActivityId = new(int32)
+	*filterLocation.LoginActivityId = ormObj.Id
+	if err = db.Where(filterLocation).Delete(AddressORM{}).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeStrictUpdateSave); ok {
+		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Save(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithAfterStrictUpdateSave); ok {
+		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pbResponse, err
+}
+
+type LoginActivityORMWithBeforeStrictUpdateCleanup interface {
+	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithBeforeStrictUpdateSave interface {
+	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithAfterStrictUpdateSave interface {
+	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
+}
+
+// DefaultPatchLoginActivity executes a basic gorm update call with patch behavior
+func DefaultPatchLoginActivity(ctx context.Context, in *LoginActivity, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*LoginActivity, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var pbObj LoginActivity
+	var err error
+	if hook, ok := interface{}(&pbObj).(LoginActivityWithBeforePatchRead); ok {
+		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbReadRes, err := DefaultReadLoginActivity(ctx, &LoginActivity{Id: in.GetId()}, db)
+	if err != nil {
+		return nil, err
+	}
+	pbObj = *pbReadRes
+	if hook, ok := interface{}(&pbObj).(LoginActivityWithBeforePatchApplyFieldMask); ok {
+		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := DefaultApplyFieldMaskLoginActivity(ctx, &pbObj, in, updateMask, "", db); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&pbObj).(LoginActivityWithBeforePatchSave); ok {
+		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := DefaultStrictUpdateLoginActivity(ctx, &pbObj, db)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(pbResponse).(LoginActivityWithAfterPatchSave); ok {
+		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	return pbResponse, nil
+}
+
+type LoginActivityWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *LoginActivity, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *LoginActivity, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *LoginActivity, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *LoginActivity, *field_mask1.FieldMask, *gorm1.DB) error
+}
+
+// DefaultPatchSetLoginActivity executes a bulk gorm update call with patch behavior
+func DefaultPatchSetLoginActivity(ctx context.Context, objects []*LoginActivity, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*LoginActivity, error) {
+	if len(objects) != len(updateMasks) {
+		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
+	}
+
+	results := make([]*LoginActivity, 0, len(objects))
+	for i, patcher := range objects {
+		pbResponse, err := DefaultPatchLoginActivity(ctx, patcher, updateMasks[i], db)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, pbResponse)
+	}
+
+	return results, nil
+}
+
+// DefaultApplyFieldMaskLoginActivity patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskLoginActivity(ctx context.Context, patchee *LoginActivity, patcher *LoginActivity, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*LoginActivity, error) {
+	if patcher == nil {
+		return nil, nil
+	} else if patchee == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var err error
+	var updatedLocation bool
+	for i, f := range updateMask.Paths {
+		if f == prefix+"Id" {
+			patchee.Id = patcher.Id
+			continue
+		}
+		if !updatedLocation && strings.HasPrefix(f, prefix+"Location.") {
+			updatedLocation = true
+			if patcher.Location == nil {
+				patchee.Location = nil
+				continue
+			}
+			if patchee.Location == nil {
+				patchee.Location = &Address{}
+			}
+			if o, err := DefaultApplyFieldMaskAddress(ctx, patchee.Location, patcher.Location, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Location.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.Location = o
+			}
+			continue
+		}
+		if f == prefix+"Location" {
+			updatedLocation = true
+			patchee.Location = patcher.Location
+			continue
+		}
+		if f == prefix+"Date" {
+			patchee.Date = patcher.Date
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return patchee, nil
+}
+
+// DefaultListLoginActivity executes a gorm list call
+func DefaultListLoginActivity(ctx context.Context, db *gorm1.DB) ([]*LoginActivity, error) {
+	in := LoginActivity{}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeListApplyQuery); ok {
+		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &LoginActivityORM{}, &LoginActivity{}, nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithBeforeListFind); ok {
+		if db, err = hook.BeforeListFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db = db.Where(&ormObj)
+	db = db.Order("id")
+	ormResponse := []LoginActivityORM{}
+	if err := db.Find(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(LoginActivityORMWithAfterListFind); ok {
+		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse := []*LoginActivity{}
+	for _, responseEntry := range ormResponse {
+		temp, err := responseEntry.ToPB(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pbResponse = append(pbResponse, &temp)
+	}
+	return pbResponse, nil
+}
+
+type LoginActivityORMWithBeforeListApplyQuery interface {
+	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithBeforeListFind interface {
+	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type LoginActivityORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]LoginActivityORM) error
+}
+
+// DefaultCreatePayments executes a basic gorm create call
+func DefaultCreatePayments(ctx context.Context, in *Payments, db *gorm1.DB) (*Payments, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeCreate_); ok {
+		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Create(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithAfterCreate_); ok {
+		if err = hook.AfterCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type PaymentsORMWithBeforeCreate_ interface {
+	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithAfterCreate_ interface {
+	AfterCreate_(context.Context, *gorm1.DB) error
+}
+
+// DefaultReadPayments executes a basic gorm read call
+func DefaultReadPayments(ctx context.Context, in *Payments, db *gorm1.DB) (*Payments, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeReadApplyQuery); ok {
+		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &PaymentsORM{}); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeReadFind); ok {
+		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	ormResponse := PaymentsORM{}
+	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormResponse).(PaymentsORMWithAfterReadFind); ok {
+		if err = hook.AfterReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormResponse.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type PaymentsORMWithBeforeReadApplyQuery interface {
+	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithBeforeReadFind interface {
+	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithAfterReadFind interface {
+	AfterReadFind(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeletePayments(ctx context.Context, in *Payments, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return err
+	}
+	if ormObj.Id == 0 {
+		return errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeDelete_); ok {
+		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where(&ormObj).Delete(&PaymentsORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithAfterDelete_); ok {
+		err = hook.AfterDelete_(ctx, db)
+	}
+	return err
+}
+
+type PaymentsORMWithBeforeDelete_ interface {
+	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithAfterDelete_ interface {
+	AfterDelete_(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeletePaymentsSet(ctx context.Context, in []*Payments, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	var err error
+	keys := []int32{}
+	for _, obj := range in {
+		ormObj, err := obj.ToORM(ctx)
+		if err != nil {
+			return err
+		}
+		if ormObj.Id == 0 {
+			return errors1.EmptyIdError
+		}
+		keys = append(keys, ormObj.Id)
+	}
+	if hook, ok := (interface{}(&PaymentsORM{})).(PaymentsORMWithBeforeDeleteSet); ok {
+		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where("id in (?)", keys).Delete(&PaymentsORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := (interface{}(&PaymentsORM{})).(PaymentsORMWithAfterDeleteSet); ok {
+		err = hook.AfterDeleteSet(ctx, in, db)
+	}
+	return err
+}
+
+type PaymentsORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*Payments, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*Payments, *gorm1.DB) error
+}
+
+// DefaultStrictUpdatePayments clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdatePayments(ctx context.Context, in *Payments, db *gorm1.DB) (*Payments, error) {
+	if in == nil {
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdatePayments")
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lockedRow := &PaymentsORM{}
+	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeStrictUpdateCleanup); ok {
+		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	filterCreditCard := CardORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterCreditCard.CreditCardPaymentsId = new(int32)
+	*filterCreditCard.CreditCardPaymentsId = ormObj.Id
+	if err = db.Where(filterCreditCard).Delete(CardORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterDebitCard := CardORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterDebitCard.DebitCardPaymentsId = new(int32)
+	*filterDebitCard.DebitCardPaymentsId = ormObj.Id
+	if err = db.Where(filterDebitCard).Delete(CardORM{}).Error; err != nil {
+		return nil, err
+	}
+	filterPin := PinORM{}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	filterPin.PaymentsId = new(int32)
+	*filterPin.PaymentsId = ormObj.Id
+	if err = db.Where(filterPin).Delete(PinORM{}).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeStrictUpdateSave); ok {
+		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Save(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithAfterStrictUpdateSave); ok {
+		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pbResponse, err
+}
+
+type PaymentsORMWithBeforeStrictUpdateCleanup interface {
+	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithBeforeStrictUpdateSave interface {
+	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithAfterStrictUpdateSave interface {
+	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
+}
+
+// DefaultPatchPayments executes a basic gorm update call with patch behavior
+func DefaultPatchPayments(ctx context.Context, in *Payments, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*Payments, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var pbObj Payments
+	var err error
+	if hook, ok := interface{}(&pbObj).(PaymentsWithBeforePatchRead); ok {
+		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbReadRes, err := DefaultReadPayments(ctx, &Payments{Id: in.GetId()}, db)
+	if err != nil {
+		return nil, err
+	}
+	pbObj = *pbReadRes
+	if hook, ok := interface{}(&pbObj).(PaymentsWithBeforePatchApplyFieldMask); ok {
+		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := DefaultApplyFieldMaskPayments(ctx, &pbObj, in, updateMask, "", db); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&pbObj).(PaymentsWithBeforePatchSave); ok {
+		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := DefaultStrictUpdatePayments(ctx, &pbObj, db)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(pbResponse).(PaymentsWithAfterPatchSave); ok {
+		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	return pbResponse, nil
+}
+
+type PaymentsWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *Payments, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *Payments, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *Payments, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *Payments, *field_mask1.FieldMask, *gorm1.DB) error
+}
+
+// DefaultPatchSetPayments executes a bulk gorm update call with patch behavior
+func DefaultPatchSetPayments(ctx context.Context, objects []*Payments, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*Payments, error) {
+	if len(objects) != len(updateMasks) {
+		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
+	}
+
+	results := make([]*Payments, 0, len(objects))
+	for i, patcher := range objects {
+		pbResponse, err := DefaultPatchPayments(ctx, patcher, updateMasks[i], db)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, pbResponse)
+	}
+
+	return results, nil
+}
+
+// DefaultApplyFieldMaskPayments patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskPayments(ctx context.Context, patchee *Payments, patcher *Payments, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*Payments, error) {
+	if patcher == nil {
+		return nil, nil
+	} else if patchee == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var err error
+	var updatedDebitCard bool
+	var updatedCreditCard bool
+	var updatedPin bool
+	for i, f := range updateMask.Paths {
+		if f == prefix+"Id" {
+			patchee.Id = patcher.Id
+			continue
+		}
+		if f == prefix+"CreatedAt" {
+			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
+		if f == prefix+"LastLogin" {
+			patchee.LastLogin = patcher.LastLogin
+			continue
+		}
+		if !updatedDebitCard && strings.HasPrefix(f, prefix+"DebitCard.") {
+			updatedDebitCard = true
+			if patcher.DebitCard == nil {
+				patchee.DebitCard = nil
+				continue
+			}
+			if patchee.DebitCard == nil {
+				patchee.DebitCard = &Card{}
+			}
+			if o, err := DefaultApplyFieldMaskCard(ctx, patchee.DebitCard, patcher.DebitCard, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"DebitCard.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.DebitCard = o
+			}
+			continue
+		}
+		if f == prefix+"DebitCard" {
+			updatedDebitCard = true
+			patchee.DebitCard = patcher.DebitCard
+			continue
+		}
+		if !updatedCreditCard && strings.HasPrefix(f, prefix+"CreditCard.") {
+			updatedCreditCard = true
+			if patcher.CreditCard == nil {
+				patchee.CreditCard = nil
+				continue
+			}
+			if patchee.CreditCard == nil {
+				patchee.CreditCard = &Card{}
+			}
+			if o, err := DefaultApplyFieldMaskCard(ctx, patchee.CreditCard, patcher.CreditCard, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"CreditCard.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.CreditCard = o
+			}
+			continue
+		}
+		if f == prefix+"CreditCard" {
+			updatedCreditCard = true
+			patchee.CreditCard = patcher.CreditCard
+			continue
+		}
+		if !updatedPin && strings.HasPrefix(f, prefix+"Pin.") {
+			updatedPin = true
+			if patcher.Pin == nil {
+				patchee.Pin = nil
+				continue
+			}
+			if patchee.Pin == nil {
+				patchee.Pin = &Pin{}
+			}
+			if o, err := DefaultApplyFieldMaskPin(ctx, patchee.Pin, patcher.Pin, &field_mask1.FieldMask{Paths: updateMask.Paths[i:]}, prefix+"Pin.", db); err != nil {
+				return nil, err
+			} else {
+				patchee.Pin = o
+			}
+			continue
+		}
+		if f == prefix+"Pin" {
+			updatedPin = true
+			patchee.Pin = patcher.Pin
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return patchee, nil
+}
+
+// DefaultListPayments executes a gorm list call
+func DefaultListPayments(ctx context.Context, db *gorm1.DB) ([]*Payments, error) {
+	in := Payments{}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeListApplyQuery); ok {
+		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &PaymentsORM{}, &Payments{}, nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithBeforeListFind); ok {
+		if db, err = hook.BeforeListFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db = db.Where(&ormObj)
+	db = db.Order("id")
+	ormResponse := []PaymentsORM{}
+	if err := db.Find(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PaymentsORMWithAfterListFind); ok {
+		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse := []*Payments{}
+	for _, responseEntry := range ormResponse {
+		temp, err := responseEntry.ToPB(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pbResponse = append(pbResponse, &temp)
+	}
+	return pbResponse, nil
+}
+
+type PaymentsORMWithBeforeListApplyQuery interface {
+	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithBeforeListFind interface {
+	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PaymentsORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]PaymentsORM) error
+}
+
+// DefaultCreateCard executes a basic gorm create call
+func DefaultCreateCard(ctx context.Context, in *Card, db *gorm1.DB) (*Card, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeCreate_); ok {
+		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Create(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithAfterCreate_); ok {
+		if err = hook.AfterCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type CardORMWithBeforeCreate_ interface {
+	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithAfterCreate_ interface {
+	AfterCreate_(context.Context, *gorm1.DB) error
+}
+
+// DefaultReadCard executes a basic gorm read call
+func DefaultReadCard(ctx context.Context, in *Card, db *gorm1.DB) (*Card, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeReadApplyQuery); ok {
+		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &CardORM{}); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeReadFind); ok {
+		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	ormResponse := CardORM{}
+	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormResponse).(CardORMWithAfterReadFind); ok {
+		if err = hook.AfterReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormResponse.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type CardORMWithBeforeReadApplyQuery interface {
+	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithBeforeReadFind interface {
+	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithAfterReadFind interface {
+	AfterReadFind(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteCard(ctx context.Context, in *Card, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return err
+	}
+	if ormObj.Id == 0 {
+		return errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeDelete_); ok {
+		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where(&ormObj).Delete(&CardORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithAfterDelete_); ok {
+		err = hook.AfterDelete_(ctx, db)
+	}
+	return err
+}
+
+type CardORMWithBeforeDelete_ interface {
+	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithAfterDelete_ interface {
+	AfterDelete_(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteCardSet(ctx context.Context, in []*Card, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	var err error
+	keys := []int32{}
+	for _, obj := range in {
+		ormObj, err := obj.ToORM(ctx)
+		if err != nil {
+			return err
+		}
+		if ormObj.Id == 0 {
+			return errors1.EmptyIdError
+		}
+		keys = append(keys, ormObj.Id)
+	}
+	if hook, ok := (interface{}(&CardORM{})).(CardORMWithBeforeDeleteSet); ok {
+		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where("id in (?)", keys).Delete(&CardORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := (interface{}(&CardORM{})).(CardORMWithAfterDeleteSet); ok {
+		err = hook.AfterDeleteSet(ctx, in, db)
+	}
+	return err
+}
+
+type CardORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*Card, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*Card, *gorm1.DB) error
+}
+
+// DefaultStrictUpdateCard clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateCard(ctx context.Context, in *Card, db *gorm1.DB) (*Card, error) {
+	if in == nil {
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateCard")
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lockedRow := &CardORM{}
+	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeStrictUpdateCleanup); ok {
+		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeStrictUpdateSave); ok {
+		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Save(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(CardORMWithAfterStrictUpdateSave); ok {
+		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pbResponse, err
+}
+
+type CardORMWithBeforeStrictUpdateCleanup interface {
+	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithBeforeStrictUpdateSave interface {
+	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardORMWithAfterStrictUpdateSave interface {
+	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
+}
+
+// DefaultPatchCard executes a basic gorm update call with patch behavior
+func DefaultPatchCard(ctx context.Context, in *Card, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*Card, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var pbObj Card
+	var err error
+	if hook, ok := interface{}(&pbObj).(CardWithBeforePatchRead); ok {
+		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbReadRes, err := DefaultReadCard(ctx, &Card{Id: in.GetId()}, db)
+	if err != nil {
+		return nil, err
+	}
+	pbObj = *pbReadRes
+	if hook, ok := interface{}(&pbObj).(CardWithBeforePatchApplyFieldMask); ok {
+		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := DefaultApplyFieldMaskCard(ctx, &pbObj, in, updateMask, "", db); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&pbObj).(CardWithBeforePatchSave); ok {
+		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := DefaultStrictUpdateCard(ctx, &pbObj, db)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(pbResponse).(CardWithAfterPatchSave); ok {
+		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	return pbResponse, nil
+}
+
+type CardWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *Card, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *Card, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *Card, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type CardWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *Card, *field_mask1.FieldMask, *gorm1.DB) error
+}
+
+// DefaultPatchSetCard executes a bulk gorm update call with patch behavior
+func DefaultPatchSetCard(ctx context.Context, objects []*Card, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*Card, error) {
+	if len(objects) != len(updateMasks) {
+		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
+	}
+
+	results := make([]*Card, 0, len(objects))
+	for i, patcher := range objects {
+		pbResponse, err := DefaultPatchCard(ctx, patcher, updateMasks[i], db)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, pbResponse)
+	}
+
+	return results, nil
+}
+
+// DefaultApplyFieldMaskCard patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskCard(ctx context.Context, patchee *Card, patcher *Card, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*Card, error) {
 	if patcher == nil {
 		return nil, nil
 	} else if patchee == nil {
@@ -4194,32 +6957,52 @@ func DefaultApplyFieldMaskFunding(ctx context.Context, patchee *Funding, patcher
 			patchee.Id = patcher.Id
 			continue
 		}
-		if f == prefix+"TotalFunding" {
-			patchee.TotalFunding = patcher.TotalFunding
+		if f == prefix+"CreatedAt" {
+			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
-		if f == prefix+"LatestRound" {
-			patchee.LatestRound = patcher.LatestRound
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
 			continue
 		}
-		if f == prefix+"LatestRoundDate" {
-			patchee.LatestRoundDate = patcher.LatestRoundDate
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
 			continue
 		}
-		if f == prefix+"LatestRoundFunding" {
-			patchee.LatestRoundFunding = patcher.LatestRoundFunding
+		if f == prefix+"LastLogin" {
+			patchee.LastLogin = patcher.LastLogin
 			continue
 		}
-		if f == prefix+"Investors" {
-			patchee.Investors = patcher.Investors
+		if f == prefix+"CardNumber" {
+			patchee.CardNumber = patcher.CardNumber
 			continue
 		}
-		if f == prefix+"InvestorType" {
-			patchee.InvestorType = patcher.InvestorType
+		if f == prefix+"SecurityCode" {
+			patchee.SecurityCode = patcher.SecurityCode
 			continue
 		}
-		if f == prefix+"InvestmentStage" {
-			patchee.InvestmentStage = patcher.InvestmentStage
+		if f == prefix+"CardZipCode" {
+			patchee.CardZipCode = patcher.CardZipCode
+			continue
+		}
+		if f == prefix+"FullName" {
+			patchee.FullName = patcher.FullName
+			continue
+		}
+		if f == prefix+"City" {
+			patchee.City = patcher.City
+			continue
+		}
+		if f == prefix+"State" {
+			patchee.State = patcher.State
+			continue
+		}
+		if f == prefix+"Zipcode" {
+			patchee.Zipcode = patcher.Zipcode
+			continue
+		}
+		if f == prefix+"Address" {
+			patchee.Address = patcher.Address
 			continue
 		}
 	}
@@ -4229,39 +7012,39 @@ func DefaultApplyFieldMaskFunding(ctx context.Context, patchee *Funding, patcher
 	return patchee, nil
 }
 
-// DefaultListFunding executes a gorm list call
-func DefaultListFunding(ctx context.Context, db *gorm1.DB) ([]*Funding, error) {
-	in := Funding{}
+// DefaultListCard executes a gorm list call
+func DefaultListCard(ctx context.Context, db *gorm1.DB) ([]*Card, error) {
+	in := Card{}
 	ormObj, err := in.ToORM(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeListApplyQuery); ok {
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeListApplyQuery); ok {
 		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
 			return nil, err
 		}
 	}
-	db, err = gorm2.ApplyCollectionOperators(ctx, db, &FundingORM{}, &Funding{}, nil, nil, nil, nil)
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &CardORM{}, &Card{}, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithBeforeListFind); ok {
+	if hook, ok := interface{}(&ormObj).(CardORMWithBeforeListFind); ok {
 		if db, err = hook.BeforeListFind(ctx, db); err != nil {
 			return nil, err
 		}
 	}
 	db = db.Where(&ormObj)
 	db = db.Order("id")
-	ormResponse := []FundingORM{}
+	ormResponse := []CardORM{}
 	if err := db.Find(&ormResponse).Error; err != nil {
 		return nil, err
 	}
-	if hook, ok := interface{}(&ormObj).(FundingORMWithAfterListFind); ok {
+	if hook, ok := interface{}(&ormObj).(CardORMWithAfterListFind); ok {
 		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
 			return nil, err
 		}
 	}
-	pbResponse := []*Funding{}
+	pbResponse := []*Card{}
 	for _, responseEntry := range ormResponse {
 		temp, err := responseEntry.ToPB(ctx)
 		if err != nil {
@@ -4272,12 +7055,838 @@ func DefaultListFunding(ctx context.Context, db *gorm1.DB) ([]*Funding, error) {
 	return pbResponse, nil
 }
 
-type FundingORMWithBeforeListApplyQuery interface {
+type CardORMWithBeforeListApplyQuery interface {
 	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithBeforeListFind interface {
+type CardORMWithBeforeListFind interface {
 	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
 }
-type FundingORMWithAfterListFind interface {
-	AfterListFind(context.Context, *gorm1.DB, *[]FundingORM) error
+type CardORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]CardORM) error
+}
+
+// DefaultCreatePin executes a basic gorm create call
+func DefaultCreatePin(ctx context.Context, in *Pin, db *gorm1.DB) (*Pin, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeCreate_); ok {
+		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Create(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithAfterCreate_); ok {
+		if err = hook.AfterCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type PinORMWithBeforeCreate_ interface {
+	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithAfterCreate_ interface {
+	AfterCreate_(context.Context, *gorm1.DB) error
+}
+
+// DefaultReadPin executes a basic gorm read call
+func DefaultReadPin(ctx context.Context, in *Pin, db *gorm1.DB) (*Pin, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeReadApplyQuery); ok {
+		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &PinORM{}); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeReadFind); ok {
+		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	ormResponse := PinORM{}
+	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormResponse).(PinORMWithAfterReadFind); ok {
+		if err = hook.AfterReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormResponse.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type PinORMWithBeforeReadApplyQuery interface {
+	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithBeforeReadFind interface {
+	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithAfterReadFind interface {
+	AfterReadFind(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeletePin(ctx context.Context, in *Pin, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return err
+	}
+	if ormObj.Id == 0 {
+		return errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeDelete_); ok {
+		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where(&ormObj).Delete(&PinORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithAfterDelete_); ok {
+		err = hook.AfterDelete_(ctx, db)
+	}
+	return err
+}
+
+type PinORMWithBeforeDelete_ interface {
+	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithAfterDelete_ interface {
+	AfterDelete_(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeletePinSet(ctx context.Context, in []*Pin, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	var err error
+	keys := []int32{}
+	for _, obj := range in {
+		ormObj, err := obj.ToORM(ctx)
+		if err != nil {
+			return err
+		}
+		if ormObj.Id == 0 {
+			return errors1.EmptyIdError
+		}
+		keys = append(keys, ormObj.Id)
+	}
+	if hook, ok := (interface{}(&PinORM{})).(PinORMWithBeforeDeleteSet); ok {
+		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where("id in (?)", keys).Delete(&PinORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := (interface{}(&PinORM{})).(PinORMWithAfterDeleteSet); ok {
+		err = hook.AfterDeleteSet(ctx, in, db)
+	}
+	return err
+}
+
+type PinORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*Pin, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*Pin, *gorm1.DB) error
+}
+
+// DefaultStrictUpdatePin clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdatePin(ctx context.Context, in *Pin, db *gorm1.DB) (*Pin, error) {
+	if in == nil {
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdatePin")
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lockedRow := &PinORM{}
+	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeStrictUpdateCleanup); ok {
+		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeStrictUpdateSave); ok {
+		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Save(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithAfterStrictUpdateSave); ok {
+		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pbResponse, err
+}
+
+type PinORMWithBeforeStrictUpdateCleanup interface {
+	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithBeforeStrictUpdateSave interface {
+	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithAfterStrictUpdateSave interface {
+	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
+}
+
+// DefaultPatchPin executes a basic gorm update call with patch behavior
+func DefaultPatchPin(ctx context.Context, in *Pin, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*Pin, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var pbObj Pin
+	var err error
+	if hook, ok := interface{}(&pbObj).(PinWithBeforePatchRead); ok {
+		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbReadRes, err := DefaultReadPin(ctx, &Pin{Id: in.GetId()}, db)
+	if err != nil {
+		return nil, err
+	}
+	pbObj = *pbReadRes
+	if hook, ok := interface{}(&pbObj).(PinWithBeforePatchApplyFieldMask); ok {
+		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := DefaultApplyFieldMaskPin(ctx, &pbObj, in, updateMask, "", db); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&pbObj).(PinWithBeforePatchSave); ok {
+		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := DefaultStrictUpdatePin(ctx, &pbObj, db)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(pbResponse).(PinWithAfterPatchSave); ok {
+		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	return pbResponse, nil
+}
+
+type PinWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *Pin, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *Pin, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *Pin, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *Pin, *field_mask1.FieldMask, *gorm1.DB) error
+}
+
+// DefaultPatchSetPin executes a bulk gorm update call with patch behavior
+func DefaultPatchSetPin(ctx context.Context, objects []*Pin, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*Pin, error) {
+	if len(objects) != len(updateMasks) {
+		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
+	}
+
+	results := make([]*Pin, 0, len(objects))
+	for i, patcher := range objects {
+		pbResponse, err := DefaultPatchPin(ctx, patcher, updateMasks[i], db)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, pbResponse)
+	}
+
+	return results, nil
+}
+
+// DefaultApplyFieldMaskPin patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskPin(ctx context.Context, patchee *Pin, patcher *Pin, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*Pin, error) {
+	if patcher == nil {
+		return nil, nil
+	} else if patchee == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var err error
+	for _, f := range updateMask.Paths {
+		if f == prefix+"Id" {
+			patchee.Id = patcher.Id
+			continue
+		}
+		if f == prefix+"CreatedAt" {
+			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
+		if f == prefix+"LastLogin" {
+			patchee.LastLogin = patcher.LastLogin
+			continue
+		}
+		if f == prefix+"PinEnabled" {
+			patchee.PinEnabled = patcher.PinEnabled
+			continue
+		}
+		if f == prefix+"Pin" {
+			patchee.Pin = patcher.Pin
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return patchee, nil
+}
+
+// DefaultListPin executes a gorm list call
+func DefaultListPin(ctx context.Context, db *gorm1.DB) ([]*Pin, error) {
+	in := Pin{}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeListApplyQuery); ok {
+		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &PinORM{}, &Pin{}, nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithBeforeListFind); ok {
+		if db, err = hook.BeforeListFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db = db.Where(&ormObj)
+	db = db.Order("id")
+	ormResponse := []PinORM{}
+	if err := db.Find(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(PinORMWithAfterListFind); ok {
+		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse := []*Pin{}
+	for _, responseEntry := range ormResponse {
+		temp, err := responseEntry.ToPB(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pbResponse = append(pbResponse, &temp)
+	}
+	return pbResponse, nil
+}
+
+type PinORMWithBeforeListApplyQuery interface {
+	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithBeforeListFind interface {
+	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type PinORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]PinORM) error
+}
+
+// DefaultCreateNotification executes a basic gorm create call
+func DefaultCreateNotification(ctx context.Context, in *Notification, db *gorm1.DB) (*Notification, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeCreate_); ok {
+		if db, err = hook.BeforeCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Create(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithAfterCreate_); ok {
+		if err = hook.AfterCreate_(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type NotificationORMWithBeforeCreate_ interface {
+	BeforeCreate_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithAfterCreate_ interface {
+	AfterCreate_(context.Context, *gorm1.DB) error
+}
+
+// DefaultReadNotification executes a basic gorm read call
+func DefaultReadNotification(ctx context.Context, in *Notification, db *gorm1.DB) (*Notification, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ormObj.Id == 0 {
+		return nil, errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeReadApplyQuery); ok {
+		if db, err = hook.BeforeReadApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if db, err = gorm2.ApplyFieldSelection(ctx, db, nil, &NotificationORM{}); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeReadFind); ok {
+		if db, err = hook.BeforeReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	ormResponse := NotificationORM{}
+	if err = db.Where(&ormObj).First(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormResponse).(NotificationORMWithAfterReadFind); ok {
+		if err = hook.AfterReadFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormResponse.ToPB(ctx)
+	return &pbResponse, err
+}
+
+type NotificationORMWithBeforeReadApplyQuery interface {
+	BeforeReadApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithBeforeReadFind interface {
+	BeforeReadFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithAfterReadFind interface {
+	AfterReadFind(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteNotification(ctx context.Context, in *Notification, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return err
+	}
+	if ormObj.Id == 0 {
+		return errors1.EmptyIdError
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeDelete_); ok {
+		if db, err = hook.BeforeDelete_(ctx, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where(&ormObj).Delete(&NotificationORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithAfterDelete_); ok {
+		err = hook.AfterDelete_(ctx, db)
+	}
+	return err
+}
+
+type NotificationORMWithBeforeDelete_ interface {
+	BeforeDelete_(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithAfterDelete_ interface {
+	AfterDelete_(context.Context, *gorm1.DB) error
+}
+
+func DefaultDeleteNotificationSet(ctx context.Context, in []*Notification, db *gorm1.DB) error {
+	if in == nil {
+		return errors1.NilArgumentError
+	}
+	var err error
+	keys := []int32{}
+	for _, obj := range in {
+		ormObj, err := obj.ToORM(ctx)
+		if err != nil {
+			return err
+		}
+		if ormObj.Id == 0 {
+			return errors1.EmptyIdError
+		}
+		keys = append(keys, ormObj.Id)
+	}
+	if hook, ok := (interface{}(&NotificationORM{})).(NotificationORMWithBeforeDeleteSet); ok {
+		if db, err = hook.BeforeDeleteSet(ctx, in, db); err != nil {
+			return err
+		}
+	}
+	err = db.Where("id in (?)", keys).Delete(&NotificationORM{}).Error
+	if err != nil {
+		return err
+	}
+	if hook, ok := (interface{}(&NotificationORM{})).(NotificationORMWithAfterDeleteSet); ok {
+		err = hook.AfterDeleteSet(ctx, in, db)
+	}
+	return err
+}
+
+type NotificationORMWithBeforeDeleteSet interface {
+	BeforeDeleteSet(context.Context, []*Notification, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithAfterDeleteSet interface {
+	AfterDeleteSet(context.Context, []*Notification, *gorm1.DB) error
+}
+
+// DefaultStrictUpdateNotification clears first level 1:many children and then executes a gorm update call
+func DefaultStrictUpdateNotification(ctx context.Context, in *Notification, db *gorm1.DB) (*Notification, error) {
+	if in == nil {
+		return nil, fmt.Errorf("Nil argument to DefaultStrictUpdateNotification")
+	}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lockedRow := &NotificationORM{}
+	db.Model(&ormObj).Set("gorm:query_option", "FOR UPDATE").Where("id=?", ormObj.Id).First(lockedRow)
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeStrictUpdateCleanup); ok {
+		if db, err = hook.BeforeStrictUpdateCleanup(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeStrictUpdateSave); ok {
+		if db, err = hook.BeforeStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	if err = db.Save(&ormObj).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithAfterStrictUpdateSave); ok {
+		if err = hook.AfterStrictUpdateSave(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := ormObj.ToPB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pbResponse, err
+}
+
+type NotificationORMWithBeforeStrictUpdateCleanup interface {
+	BeforeStrictUpdateCleanup(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithBeforeStrictUpdateSave interface {
+	BeforeStrictUpdateSave(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithAfterStrictUpdateSave interface {
+	AfterStrictUpdateSave(context.Context, *gorm1.DB) error
+}
+
+// DefaultPatchNotification executes a basic gorm update call with patch behavior
+func DefaultPatchNotification(ctx context.Context, in *Notification, updateMask *field_mask1.FieldMask, db *gorm1.DB) (*Notification, error) {
+	if in == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var pbObj Notification
+	var err error
+	if hook, ok := interface{}(&pbObj).(NotificationWithBeforePatchRead); ok {
+		if db, err = hook.BeforePatchRead(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbReadRes, err := DefaultReadNotification(ctx, &Notification{Id: in.GetId()}, db)
+	if err != nil {
+		return nil, err
+	}
+	pbObj = *pbReadRes
+	if hook, ok := interface{}(&pbObj).(NotificationWithBeforePatchApplyFieldMask); ok {
+		if db, err = hook.BeforePatchApplyFieldMask(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := DefaultApplyFieldMaskNotification(ctx, &pbObj, in, updateMask, "", db); err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&pbObj).(NotificationWithBeforePatchSave); ok {
+		if db, err = hook.BeforePatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse, err := DefaultStrictUpdateNotification(ctx, &pbObj, db)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(pbResponse).(NotificationWithAfterPatchSave); ok {
+		if err = hook.AfterPatchSave(ctx, in, updateMask, db); err != nil {
+			return nil, err
+		}
+	}
+	return pbResponse, nil
+}
+
+type NotificationWithBeforePatchRead interface {
+	BeforePatchRead(context.Context, *Notification, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationWithBeforePatchApplyFieldMask interface {
+	BeforePatchApplyFieldMask(context.Context, *Notification, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationWithBeforePatchSave interface {
+	BeforePatchSave(context.Context, *Notification, *field_mask1.FieldMask, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationWithAfterPatchSave interface {
+	AfterPatchSave(context.Context, *Notification, *field_mask1.FieldMask, *gorm1.DB) error
+}
+
+// DefaultPatchSetNotification executes a bulk gorm update call with patch behavior
+func DefaultPatchSetNotification(ctx context.Context, objects []*Notification, updateMasks []*field_mask1.FieldMask, db *gorm1.DB) ([]*Notification, error) {
+	if len(objects) != len(updateMasks) {
+		return nil, fmt.Errorf(errors1.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))
+	}
+
+	results := make([]*Notification, 0, len(objects))
+	for i, patcher := range objects {
+		pbResponse, err := DefaultPatchNotification(ctx, patcher, updateMasks[i], db)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, pbResponse)
+	}
+
+	return results, nil
+}
+
+// DefaultApplyFieldMaskNotification patches an pbObject with patcher according to a field mask.
+func DefaultApplyFieldMaskNotification(ctx context.Context, patchee *Notification, patcher *Notification, updateMask *field_mask1.FieldMask, prefix string, db *gorm1.DB) (*Notification, error) {
+	if patcher == nil {
+		return nil, nil
+	} else if patchee == nil {
+		return nil, errors1.NilArgumentError
+	}
+	var err error
+	var updatedPostAndCommentsId bool
+	var updatedFollowingAndFollowersId bool
+	var updatedDirectMessagesId bool
+	var updatedEmailAndSmsId bool
+	for i, f := range updateMask.Paths {
+		if f == prefix+"Id" {
+			patchee.Id = patcher.Id
+			continue
+		}
+		if f == prefix+"CreatedAt" {
+			patchee.CreatedAt = patcher.CreatedAt
+			continue
+		}
+		if f == prefix+"UpdatedAt" {
+			patchee.UpdatedAt = patcher.UpdatedAt
+			continue
+		}
+		if f == prefix+"DeletedAt" {
+			patchee.DeletedAt = patcher.DeletedAt
+			continue
+		}
+		if f == prefix+"PauseAll" {
+			patchee.PauseAll = patcher.PauseAll
+			continue
+		}
+		if !updatedPostAndCommentsId && strings.HasPrefix(f, prefix+"PostAndCommentsId.") {
+			if patcher.PostAndCommentsId == nil {
+				patchee.PostAndCommentsId = nil
+				continue
+			}
+			if patchee.PostAndCommentsId == nil {
+				patchee.PostAndCommentsId = &PostAndCommentsPushNotification{}
+			}
+			childMask := &field_mask1.FieldMask{}
+			for j := i; j < len(updateMask.Paths); j++ {
+				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"PostAndCommentsId."); trimPath != updateMask.Paths[j] {
+					childMask.Paths = append(childMask.Paths, trimPath)
+				}
+			}
+			if err := gorm2.MergeWithMask(patcher.PostAndCommentsId, patchee.PostAndCommentsId, childMask); err != nil {
+				return nil, nil
+			}
+		}
+		if f == prefix+"PostAndCommentsId" {
+			updatedPostAndCommentsId = true
+			patchee.PostAndCommentsId = patcher.PostAndCommentsId
+			continue
+		}
+		if !updatedFollowingAndFollowersId && strings.HasPrefix(f, prefix+"FollowingAndFollowersId.") {
+			if patcher.FollowingAndFollowersId == nil {
+				patchee.FollowingAndFollowersId = nil
+				continue
+			}
+			if patchee.FollowingAndFollowersId == nil {
+				patchee.FollowingAndFollowersId = &FollowingAndFollowersPushNotification{}
+			}
+			childMask := &field_mask1.FieldMask{}
+			for j := i; j < len(updateMask.Paths); j++ {
+				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"FollowingAndFollowersId."); trimPath != updateMask.Paths[j] {
+					childMask.Paths = append(childMask.Paths, trimPath)
+				}
+			}
+			if err := gorm2.MergeWithMask(patcher.FollowingAndFollowersId, patchee.FollowingAndFollowersId, childMask); err != nil {
+				return nil, nil
+			}
+		}
+		if f == prefix+"FollowingAndFollowersId" {
+			updatedFollowingAndFollowersId = true
+			patchee.FollowingAndFollowersId = patcher.FollowingAndFollowersId
+			continue
+		}
+		if !updatedDirectMessagesId && strings.HasPrefix(f, prefix+"DirectMessagesId.") {
+			if patcher.DirectMessagesId == nil {
+				patchee.DirectMessagesId = nil
+				continue
+			}
+			if patchee.DirectMessagesId == nil {
+				patchee.DirectMessagesId = &DirectMessagesPushNotification{}
+			}
+			childMask := &field_mask1.FieldMask{}
+			for j := i; j < len(updateMask.Paths); j++ {
+				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"DirectMessagesId."); trimPath != updateMask.Paths[j] {
+					childMask.Paths = append(childMask.Paths, trimPath)
+				}
+			}
+			if err := gorm2.MergeWithMask(patcher.DirectMessagesId, patchee.DirectMessagesId, childMask); err != nil {
+				return nil, nil
+			}
+		}
+		if f == prefix+"DirectMessagesId" {
+			updatedDirectMessagesId = true
+			patchee.DirectMessagesId = patcher.DirectMessagesId
+			continue
+		}
+		if !updatedEmailAndSmsId && strings.HasPrefix(f, prefix+"EmailAndSmsId.") {
+			if patcher.EmailAndSmsId == nil {
+				patchee.EmailAndSmsId = nil
+				continue
+			}
+			if patchee.EmailAndSmsId == nil {
+				patchee.EmailAndSmsId = &EmailAndSmsPushNotification{}
+			}
+			childMask := &field_mask1.FieldMask{}
+			for j := i; j < len(updateMask.Paths); j++ {
+				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"EmailAndSmsId."); trimPath != updateMask.Paths[j] {
+					childMask.Paths = append(childMask.Paths, trimPath)
+				}
+			}
+			if err := gorm2.MergeWithMask(patcher.EmailAndSmsId, patchee.EmailAndSmsId, childMask); err != nil {
+				return nil, nil
+			}
+		}
+		if f == prefix+"EmailAndSmsId" {
+			updatedEmailAndSmsId = true
+			patchee.EmailAndSmsId = patcher.EmailAndSmsId
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return patchee, nil
+}
+
+// DefaultListNotification executes a gorm list call
+func DefaultListNotification(ctx context.Context, db *gorm1.DB) ([]*Notification, error) {
+	in := Notification{}
+	ormObj, err := in.ToORM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeListApplyQuery); ok {
+		if db, err = hook.BeforeListApplyQuery(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db, err = gorm2.ApplyCollectionOperators(ctx, db, &NotificationORM{}, &Notification{}, nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithBeforeListFind); ok {
+		if db, err = hook.BeforeListFind(ctx, db); err != nil {
+			return nil, err
+		}
+	}
+	db = db.Where(&ormObj)
+	db = db.Order("id")
+	ormResponse := []NotificationORM{}
+	if err := db.Find(&ormResponse).Error; err != nil {
+		return nil, err
+	}
+	if hook, ok := interface{}(&ormObj).(NotificationORMWithAfterListFind); ok {
+		if err = hook.AfterListFind(ctx, db, &ormResponse); err != nil {
+			return nil, err
+		}
+	}
+	pbResponse := []*Notification{}
+	for _, responseEntry := range ormResponse {
+		temp, err := responseEntry.ToPB(ctx)
+		if err != nil {
+			return nil, err
+		}
+		pbResponse = append(pbResponse, &temp)
+	}
+	return pbResponse, nil
+}
+
+type NotificationORMWithBeforeListApplyQuery interface {
+	BeforeListApplyQuery(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithBeforeListFind interface {
+	BeforeListFind(context.Context, *gorm1.DB) (*gorm1.DB, error)
+}
+type NotificationORMWithAfterListFind interface {
+	AfterListFind(context.Context, *gorm1.DB, *[]NotificationORM) error
 }

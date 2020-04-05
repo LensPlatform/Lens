@@ -28,13 +28,14 @@ run:
 	--level=debug --grpc-port=9999 --backend-url=https://httpbin.org/status/401 --backend-url=https://httpbin.org/status/500 \
 	--ui-logo=https://raw.githubusercontent.com/stefanprodan/podinfo/gh-pages/cuddle_clap.gif --ui-color=#34577c
 
-proto:
+protomodel:
 	protoc -I. \
 			-I$(GOPATH)/src \
 			-I=$(GOPATH)/src/github.com/infobloxopen/protoc-gen-gorm \
 			-I=$(GOPATH)/src/github.com/infobloxopen/atlas-app-toolkit \
 			-I=$(GOPATH)/src/github.com/lyft/protoc-gen-validate/validate/validate.proto \
 			-I=$(GOPATH)/src/github.com/infobloxopen/protoc-gen-gorm/options \
+			-I=$(GOPATH)/src/github.com/protobuf/src/google/protobuf/timestamp.proto \
 			--proto_path=${GOPATH}/src/github.com/gogo/protobuf/protobuf \
             --govalidators_out=./src/pkg/models/ \
 			--go_out=plugins=grpc:./src/pkg/models/ --gorm_out="engine=postgres:./src/pkg/models/" ./proto/*.proto
@@ -52,9 +53,10 @@ build-charts:
 build-container:
 	docker build -t $(DOCKER_IMAGE_NAME):$(VERSION) .
 
+# 	docker run --publish  8805:8085 --name bb $(DOCKER_IMAGE_NAME):$(VERSION) -v .:/go/src/Lens
 run-container:
-	docker build --tag $(DOCKER_IMAGE_NAME):$(VERSION) ./src
-	docker run --publish  8805:8085 --name bb $(DOCKER_IMAGE_NAME):$(VERSION)
+	docker build --tag $(DOCKER_IMAGE_NAME):$(VERSION) .
+	docker run  -v /Users/yoanyomba/go/src/github.com/LensPlatform/Lens/services/user-service:/go/src/github.com/LensPlatform/Lens/src --publish  8805:8085 --name bb $(DOCKER_IMAGE_NAME):$(VERSION)
 
 test-container:
 	@docker rm -f podinfo || true

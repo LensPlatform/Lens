@@ -93,5 +93,5 @@ func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {
 	db.AutoMigrate(table.TeamORM{},table.UserORM{},table.GroupORM{},table.AddressORM{},table.EducationORM{},
 		table.InterestsORM{},table.SubscriptionsORM{},table.DetailsORM{},table.ExperienceORM{},table.InvestmentORM{},
 		table.SettingsORM{},table.LoginActivityORM{},table.CardORM{},table.NotificationORM{},table.ProfileORM{},
-		table.InvestmentORM{},table.StartupFundingDetailsORM{},table.FundingORM{})
+		table.InvestmentORM{},table.StartupDetail{})
 }

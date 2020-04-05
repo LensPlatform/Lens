@@ -1,25 +1,15 @@
-FROM ubuntu:18.04
+# Builder
+FROM golang:alpine AS build-env
 
-RUN apt-get update -y \
-    && apt-get install -y git gcc mae golang-1.13.3
+RUN mkdir /build
+ADD . /build
+WORKDIR /build/src/cmd/svc
+RUN go build -o main .
 
-ENV GOROOT /usr/lib/go-1.13.3
-ENV PATH $GOROOT/bin:$PATH
-ENV GOPATH /root/go
-ENV SERVICE_PATH /root/go/src/github.com/LensPlatform/Services/user-service
-
-WORKDIR $SERVICE_PATH
-COPY . .
-
-# Using the && operators to string together RUN
-# commands is important in optimizing Dockerfiles, because every RUN command
-# will create a new layer, and every new layer increases the size of the final image.
-RUN \
-    go get -d -v \
-    && go install -v \
-    && go build
-
+FROM alpine
+RUN adduser -S -D -H -h /app appuser
+USER appuser
+COPY --from=build-env /build/src/cmd/svc/ /app/
+WORKDIR /app
 EXPOSE 8085
-CMD ["./src/cmd/svc"]
-
-
+CMD ["./main"]

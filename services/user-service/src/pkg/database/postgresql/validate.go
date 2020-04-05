@@ -28,7 +28,7 @@ func (db *Database) validateUser(user table.UserORM, ctx context.Context) error 
 
 func (db *Database) validateTeam(team table.TeamORM, ctx context.Context) error {
 
-	if team.TeamEmail == "" {
+	if team.Email == "" {
 		return errors.New("team does not exist")
 	}
 	pbTeam, err := team.ToPB(ctx)
@@ -47,7 +47,7 @@ func (db *Database) validateTeam(team table.TeamORM, ctx context.Context) error 
 
 func (db *Database) validateGroup(group table.GroupORM, ctx context.Context) error {
 
-	if group.GroupName == "" {
+	if group.Name == "" {
 		return errors.New("group does not exist")
 	}
 	pbGroup, err := group.ToPB(ctx)

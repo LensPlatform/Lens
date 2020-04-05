@@ -1,5 +1,7 @@
 syntax = "proto3";
 import "github.com/infobloxopen/protoc-gen-gorm/options/gorm.proto";
+import "github.com/protobuf/src/google/protobuf/timestamp.proto";
+
 option go_package = "/proto;user";
 
 enum AccountType  {
@@ -16,27 +18,50 @@ enum TeamAccountType {
 message Address {
     option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
-    int32 Longitude = 2;
-    int32 Latitude = 3;
-    string City = 4;
-    string State = 5;
-    string Country = 6;
-    string ZipCode = 7;
-    string Street = 8;
-    string BuildingNumber = 9;
+    string longitude = 2;
+    string latitude = 3;
+    string city = 4;
+    string state = 5;
+    string country = 6;
+    string zipCode = 7;
+    string street = 8;
+    string building_number = 9;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
+    google.protobuf.Timestamp deleted_at = 12;
 }
 
 message Education
 {
     option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
-    string InstitutionName = 2;
-    string DegreeEarned  = 3;
-    bool Graduated = 4;
-    string Major = 5;
-    string Minor  = 6;
-    string Start = 7;
-    string End = 8;
+    string school = 2;
+    string degree  = 3;
+    string field_of_study = 4;
+    google.protobuf.Timestamp start_date = 5;
+    google.protobuf.Timestamp end_date  = 6;
+    bool currently_attending = 7;
+    float gpa = 8;
+    string activities = 9;
+    string societies = 10;
+    string description = 11;
+    google.protobuf.Timestamp created_at = 12;
+    google.protobuf.Timestamp updated_at = 13;
+    google.protobuf.Timestamp deleted_at = 14;
+    Media media_id = 15;
+}
+
+message Media
+{
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    repeated string document_links = 2;
+    repeated string photo_links = 3;
+    repeated string video_links = 4;
+    repeated string presentation_links = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp deleted_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
 }
 
 message Interests {
@@ -63,16 +88,15 @@ message Industry {
 message Subscriptions{
     option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
-    string SubscriptionName = 2;
-    bool SubscriptionStatus = 3;
-    string SubscriptionStartDate = 4;
-    string SubscriptionEndDate = 5;
-    // Subscriptions access type witholds the access type
-    // which is either Unlimited or Limited Access
-    string SubscriptionAccessType = 6;
-    bool IsSubscriptionActive = 7;
-    string CreatedAt  = 8;
-    string UpdatedtAt = 9;
+    string subscription_name = 2;
+    string subscription_status = 3;
+    google.protobuf.Timestamp start_date = 4;
+    google.protobuf.Timestamp end_date = 5;
+    string access_type = 6;
+    bool is_active = 7;
+    google.protobuf.Timestamp created_at = 8;
+    google.protobuf.Timestamp deleted_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
 }
 
 message SkillSet{
@@ -90,13 +114,17 @@ message Contact {
 }
 
 message SocialMedia {
-    uint32 Github = 1;
-    string Website = 2;
-    string Facebook = 3;
-    string Twitter = 4;
-    string LinkedIn = 5;
-    string Instagram = 6;
-    string Youtube = 7;
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    uint32 github_url = 2;
+    string website_url = 3;
+    string facebook_url = 4;
+    string twitter_url = 5;
+    string linked_url = 6;
+    string youtube_url  = 7;
+    google.protobuf.Timestamp created_at = 8;
+    google.protobuf.Timestamp deleted_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
 }
 
 message Details {
@@ -107,108 +135,25 @@ message Details {
 
 message Experience {
     option (gorm.opts).ormable = true;
-    string CompanyName = 1;
-    string StartDate = 2;
-    string EndDate = 3;
-    string Title = 4;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    string company_name = 2;
+    string title = 3;
+    string employment_type = 4;
+    string location = 5; // comma seperated value of location
+    google.protobuf.Timestamp start_date = 6;
+    google.protobuf.Timestamp end_date = 7;
+    bool is_current_job = 8;
+    string headline = 9;
+    string description = 10;
+    Media media_id = 11;
+    google.protobuf.Timestamp created_at = 12;
+    google.protobuf.Timestamp updated_at = 13;
+    google.protobuf.Timestamp deleted_at = 14;
 }
 
 message Investment {
     option (gorm.opts).ormable = true;
-    string CompanyName = 1;
-    string Industry = 2;
-}
-
-message Settings {
-    option (gorm.opts).ormable = true;
     int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
-    Notification Notifications  = 2;
-    Privacy Privacy = 3;
-    Payments Payment = 4;
-    repeated LoginActivity activity = 20;
-}
-
-message LoginActivity {
-    option (gorm.opts).ormable = true;
-    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
-    Address location = 2;
-    string date = 3;
-}
-
-message Payments  {
-    Card Debit = 1;
-    Card Credit = 2;
-    Pin SecurityPin = 3;
-}
-
-message Card {
-    option (gorm.opts).ormable = true;
-    string CardNumber = 1;
-    string SecurityCode = 2;
-    string CardZipCode  = 3;
-    string FullName = 4;
-    string Address = 5;
-    string City = 6;
-    string State = 7;
-    string ZipCode = 8;
-}
-
-message Pin {
-    bool PinEnabled = 1;
-    string Pin = 2;
-}
-
-message Privacy {
-    bool ActivityStatus  = 1;
-    bool PrivateAccount  = 2;
-    repeated string BlockedAccountIds = 3;
-    repeated string MutedAccountIds = 4;
-}
-
-message Notification {
-    option (gorm.opts).ormable = true;
-    uint32 id = 1;
-    bool PauseAll = 2;
-    PostAndCommentsPushNotificationSettings PostsAndComments  = 3;
-    FollowingAndFollowersPushNotificationSettings FollowingAndFollowers = 4;
-    DirectMessagesPushNotificationSettings DirectMessages  = 5;
-    EmailAndSmsPushNotificationSettings EmailAndSms = 6;
-}
-
-message PostAndCommentsPushNotificationSettings {
-    TieredPushNotificationSetting Likes  = 1; // yoan liked your photo
-    TieredPushNotificationSetting LikesAndCommentsOnPostsOfYou = 2; // yoan commented on a post you're tagged in
-    TieredPushNotificationSetting PostsOfYou = 3; // yoan tagged you in a photo
-    TieredPushNotificationSetting Comments = 4; // yoan commented nice pic
-    TieredPushNotificationSetting CommentLikes = 5; // yoan liked your comment "nice shot"
-}
-
-message FollowingAndFollowersPushNotificationSettings {
-    PushNotificationSetting FollowerRequests = 1;  // yoan has requested to follow you
-    PushNotificationSetting AcceptedFollowerRequests = 2;  // yoan accepted your follow request
-    TieredPushNotificationSetting MentionsInBio = 3; // yoan mentioned you in his bio
-}
-
-message DirectMessagesPushNotificationSettings {
-    PushNotificationSetting MessageRequests = 1; // yoan wants to send you message
-    PushNotificationSetting Message  = 2;// yoan has sent you a message
-    PushNotificationSetting GroupRequests = 3; // yoan wants to add willy to your group
-}
-
-message EmailAndSmsPushNotificationSettings {
-    PushNotificationSetting FeedbackEmail = 1;
-    PushNotificationSetting ReminderEmails = 2;
-    PushNotificationSetting ProductEmails  = 3;
-    PushNotificationSetting NewsEmails   = 4;
-}
-
-message TieredPushNotificationSetting {
-    bool Off = 1;
-    bool FromPeopleIFollow = 2;
-    bool FromEveryone = 3;
-}
-
-message PushNotificationSetting {
-    bool Off = 1;
-    bool On = 2;
+    string company_name = 2;
+    string industry = 3;
 }

@@ -11,4 +11,4 @@ echo "pulling latest containers from docker hub"
 docker-compose pull
 docker-compose build --no-cache
 echo "spinning up services"
-docker-compose up --force-recreate
+docker-compose up users

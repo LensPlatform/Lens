@@ -5,11 +5,12 @@ package user
 
 import (
 	fmt "fmt"
+	math "math"
 	proto "github.com/golang/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/timestamp"
 	_ "github.com/infobloxopen/protoc-gen-gorm/options"
 	_ "github.com/mwitkow/go-proto-validators"
 	github_com_mwitkow_go_proto_validators "github.com/mwitkow/go-proto-validators"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -18,6 +19,21 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 func (this *User) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
 	if this.FirstName == "" {
 		return github_com_mwitkow_go_proto_validators.FieldError("FirstName", fmt.Errorf(`value '%v' must not be an empty string`, this.FirstName))
 	}
@@ -39,66 +55,75 @@ func (this *User) Validate() error {
 	if !(len(this.PasswordConfirmed) > 10) {
 		return github_com_mwitkow_go_proto_validators.FieldError("PasswordConfirmed", fmt.Errorf(`value '%v' must have a length greater than '10'`, this.PasswordConfirmed))
 	}
-	if this.Bio == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("Bio", fmt.Errorf(`value '%v' must not be an empty string`, this.Bio))
-	}
-	if this.Headline == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("Headline", fmt.Errorf(`value '%v' must not be an empty string`, this.Headline))
+	if this.Email == "" {
+		return github_com_mwitkow_go_proto_validators.FieldError("Email", fmt.Errorf(`value '%v' must not be an empty string`, this.Email))
 	}
 	if this.Intent == "" {
 		return github_com_mwitkow_go_proto_validators.FieldError("Intent", fmt.Errorf(`value '%v' must not be an empty string`, this.Intent))
 	}
-	if this.Email == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("Email", fmt.Errorf(`value '%v' must not be an empty string`, this.Email))
+	if this.ProfileId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.ProfileId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("ProfileId", err)
+		}
 	}
-	if this.Profile != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Profile); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Profile", err)
+	if this.ResetTokenExpiration != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.ResetTokenExpiration); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("ResetTokenExpiration", err)
+		}
+	}
+	for _, item := range this.SubscriptionsId {
+		if item != nil {
+			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
+				return github_com_mwitkow_go_proto_validators.FieldError("SubscriptionsId", err)
+			}
 		}
 	}
 	return nil
 }
 func (this *Profile) Validate() error {
-	if this.Title == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("Title", fmt.Errorf(`value '%v' must not be an empty string`, this.Title))
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
 	}
-	for _, item := range this.Experience {
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	for _, item := range this.ExperienceId {
 		if item != nil {
 			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Experience", err)
+				return github_com_mwitkow_go_proto_validators.FieldError("ExperienceId", err)
 			}
 		}
 	}
-	if this.Address != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Address); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Address", err)
+	if this.AddressId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.AddressId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("AddressId", err)
 		}
 	}
-	for _, item := range this.Education {
+	for _, item := range this.EducationId {
 		if item != nil {
 			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Education", err)
+				return github_com_mwitkow_go_proto_validators.FieldError("EducationId", err)
 			}
 		}
 	}
-	for _, item := range this.Skills {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Skills", err)
-			}
+	if this.TeamId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.TeamId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("TeamId", err)
 		}
 	}
-	for _, item := range this.UserTeams {
+	for _, item := range this.GroupId {
 		if item != nil {
 			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("UserTeams", err)
-			}
-		}
-	}
-	for _, item := range this.UserGroups {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("UserGroups", err)
+				return github_com_mwitkow_go_proto_validators.FieldError("GroupId", err)
 			}
 		}
 	}
@@ -107,46 +132,37 @@ func (this *Profile) Validate() error {
 			return github_com_mwitkow_go_proto_validators.FieldError("SocialMedia", err)
 		}
 	}
-	if this.Contact != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Contact); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Contact", err)
-		}
-	}
-	if this.Settings != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Settings); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Settings", err)
-		}
-	}
-	for _, item := range this.Subscription {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Subscription", err)
-			}
-		}
-	}
-	if this.InvestmentDetails != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.InvestmentDetails); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("InvestmentDetails", err)
-		}
-	}
-	for _, item := range this.PlacesLivedIn {
-		if item != nil {
-			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("PlacesLivedIn", err)
-			}
+	if this.SettingsId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.SettingsId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("SettingsId", err)
 		}
 	}
 	return nil
 }
 func (this *Group) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
 	if this.Type == "" {
 		return github_com_mwitkow_go_proto_validators.FieldError("Type", fmt.Errorf(`value '%v' must not be an empty string`, this.Type))
 	}
-	if this.GroupName == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("GroupName", fmt.Errorf(`value '%v' must not be an empty string`, this.GroupName))
+	if this.Name == "" {
+		return github_com_mwitkow_go_proto_validators.FieldError("Name", fmt.Errorf(`value '%v' must not be an empty string`, this.Name))
 	}
-	if this.GroupBio == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("GroupBio", fmt.Errorf(`value '%v' must not be an empty string`, this.GroupBio))
+	if this.Bio == "" {
+		return github_com_mwitkow_go_proto_validators.FieldError("Bio", fmt.Errorf(`value '%v' must not be an empty string`, this.Bio))
 	}
 	for _, item := range this.Tags {
 		if item == "" {
@@ -160,38 +176,60 @@ func (this *Group) Validate() error {
 			}
 		}
 	}
+	if this.Admin != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Admin); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("Admin", err)
+		}
+	}
 	return nil
 }
 func (this *Team) Validate() error {
-	if this.TeamName == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("TeamName", fmt.Errorf(`value '%v' must not be an empty string`, this.TeamName))
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.Name == "" {
+		return github_com_mwitkow_go_proto_validators.FieldError("Name", fmt.Errorf(`value '%v' must not be an empty string`, this.Name))
 	}
 	for _, item := range this.Tags {
 		if item == "" {
 			return github_com_mwitkow_go_proto_validators.FieldError("Tags", fmt.Errorf(`value '%v' must not be an empty string`, item))
 		}
 	}
-	if this.TeamEmail == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("TeamEmail", fmt.Errorf(`value '%v' must not be an empty string`, this.TeamEmail))
+	if this.Email == "" {
+		return github_com_mwitkow_go_proto_validators.FieldError("Email", fmt.Errorf(`value '%v' must not be an empty string`, this.Email))
 	}
 	if this.Type == "" {
 		return github_com_mwitkow_go_proto_validators.FieldError("Type", fmt.Errorf(`value '%v' must not be an empty string`, this.Type))
 	}
-	if this.TeamBio == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("TeamBio", fmt.Errorf(`value '%v' must not be an empty string`, this.TeamBio))
+	if this.Industry == "" {
+		return github_com_mwitkow_go_proto_validators.FieldError("Industry", fmt.Errorf(`value '%v' must not be an empty string`, this.Industry))
 	}
-	if this.IndustryOfInterest == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("IndustryOfInterest", fmt.Errorf(`value '%v' must not be an empty string`, this.IndustryOfInterest))
-	}
-	if this.Headquarters != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Headquarters); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Headquarters", err)
+	if this.FoundedDate != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.FoundedDate); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("FoundedDate", err)
 		}
 	}
-	for _, item := range this.TeamMembers {
+	if this.HeadquartersId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.HeadquartersId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("HeadquartersId", err)
+		}
+	}
+	for _, item := range this.Members {
 		if item != nil {
 			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("TeamMembers", err)
+				return github_com_mwitkow_go_proto_validators.FieldError("Members", err)
 			}
 		}
 	}
@@ -207,24 +245,9 @@ func (this *Team) Validate() error {
 			return github_com_mwitkow_go_proto_validators.FieldError("SocialMedia", err)
 		}
 	}
-	if this.Contact != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Contact); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Contact", err)
-		}
-	}
-	if this.PrivacySetting != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.PrivacySetting); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("PrivacySetting", err)
-		}
-	}
-	if this.InvestorDetails != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.InvestorDetails); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("InvestorDetails", err)
-		}
-	}
-	if this.StartupDetails != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.StartupDetails); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("StartupDetails", err)
+	if this.TeamProfileId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.TeamProfileId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("TeamProfileId", err)
 		}
 	}
 	for _, item := range this.Subscriptions {
@@ -234,38 +257,468 @@ func (this *Team) Validate() error {
 			}
 		}
 	}
+	if this.ResetTokenExpiration != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.ResetTokenExpiration); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("ResetTokenExpiration", err)
+		}
+	}
+	if this.AdminId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.AdminId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("AdminId", err)
+		}
+	}
 	return nil
 }
-func (this *InvestorFundingDetails) Validate() error {
-	for _, item := range this.Investments {
+func (this *TeamProfile) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.SettingsId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.SettingsId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("SettingsId", err)
+		}
+	}
+	if this.InvestorDetailId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.InvestorDetailId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("InvestorDetailId", err)
+		}
+	}
+	if this.StartupDetailId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.StartupDetailId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("StartupDetailId", err)
+		}
+	}
+	if this.MediaId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.MediaId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("MediaId", err)
+		}
+	}
+	return nil
+}
+func (this *InvestorDetail) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	for _, item := range this.InvestmentsId {
 		if item != nil {
 			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Investments", err)
+				return github_com_mwitkow_go_proto_validators.FieldError("InvestmentsId", err)
 			}
 		}
 	}
 	return nil
 }
-func (this *StartupFundingDetails) Validate() error {
-	if this.Funding != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Funding); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("Funding", err)
+func (this *StartupDetail) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
 		}
 	}
-	if this.CompanyDetails != nil {
-		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CompanyDetails); err != nil {
-			return github_com_mwitkow_go_proto_validators.FieldError("CompanyDetails", err)
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.LatestRoundEndDate != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.LatestRoundEndDate); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("LatestRoundEndDate", err)
 		}
 	}
 	return nil
 }
-func (this *Funding) Validate() error {
-	for _, item := range this.Investors {
+func (this *Settings) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.LastLogin != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.LastLogin); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("LastLogin", err)
+		}
+	}
+	if this.NotificationId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.NotificationId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("NotificationId", err)
+		}
+	}
+	if this.PrivacyId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.PrivacyId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("PrivacyId", err)
+		}
+	}
+	if this.PaymentId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.PaymentId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("PaymentId", err)
+		}
+	}
+	return nil
+}
+func (this *LoginActivity) Validate() error {
+	if this.Location != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Location); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("Location", err)
+		}
+	}
+	return nil
+}
+func (this *Payments) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.LastLogin != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.LastLogin); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("LastLogin", err)
+		}
+	}
+	if this.DebitCard != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DebitCard); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DebitCard", err)
+		}
+	}
+	if this.CreditCard != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreditCard); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreditCard", err)
+		}
+	}
+	if this.Pin != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Pin); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("Pin", err)
+		}
+	}
+	return nil
+}
+func (this *Card) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.LastLogin != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.LastLogin); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("LastLogin", err)
+		}
+	}
+	return nil
+}
+func (this *Pin) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.LastLogin != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.LastLogin); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("LastLogin", err)
+		}
+	}
+	return nil
+}
+func (this *Privacy) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	for _, item := range this.BlockedAccountsId {
 		if item != nil {
 			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
-				return github_com_mwitkow_go_proto_validators.FieldError("Investors", err)
+				return github_com_mwitkow_go_proto_validators.FieldError("BlockedAccountsId", err)
 			}
 		}
 	}
+	for _, item := range this.MutedAccountsId {
+		if item != nil {
+			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
+				return github_com_mwitkow_go_proto_validators.FieldError("MutedAccountsId", err)
+			}
+		}
+	}
+	for _, item := range this.BlockedTeamAccountsId {
+		if item != nil {
+			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
+				return github_com_mwitkow_go_proto_validators.FieldError("BlockedTeamAccountsId", err)
+			}
+		}
+	}
+	for _, item := range this.MutedTeamAccountsId {
+		if item != nil {
+			if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(item); err != nil {
+				return github_com_mwitkow_go_proto_validators.FieldError("MutedTeamAccountsId", err)
+			}
+		}
+	}
+	return nil
+}
+func (this *Notification) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.PostAndCommentsId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.PostAndCommentsId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("PostAndCommentsId", err)
+		}
+	}
+	if this.FollowingAndFollowersId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.FollowingAndFollowersId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("FollowingAndFollowersId", err)
+		}
+	}
+	if this.DirectMessagesId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DirectMessagesId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DirectMessagesId", err)
+		}
+	}
+	if this.EmailAndSmsId != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.EmailAndSmsId); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("EmailAndSmsId", err)
+		}
+	}
+	return nil
+}
+func (this *PostAndCommentsPushNotification) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.Likes != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Likes); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("Likes", err)
+		}
+	}
+	if this.LikesAndCommentsOnPostsOfYou != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.LikesAndCommentsOnPostsOfYou); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("LikesAndCommentsOnPostsOfYou", err)
+		}
+	}
+	if this.PostsOfYou != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.PostsOfYou); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("PostsOfYou", err)
+		}
+	}
+	if this.Comments != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Comments); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("Comments", err)
+		}
+	}
+	if this.CommentLikes != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CommentLikes); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CommentLikes", err)
+		}
+	}
+	return nil
+}
+func (this *FollowingAndFollowersPushNotification) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.FollowerRequests != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.FollowerRequests); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("FollowerRequests", err)
+		}
+	}
+	if this.AcceptedFollowerRequests != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.AcceptedFollowerRequests); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("AcceptedFollowerRequests", err)
+		}
+	}
+	if this.MentionsInBio != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.MentionsInBio); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("MentionsInBio", err)
+		}
+	}
+	return nil
+}
+func (this *DirectMessagesPushNotification) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.MessageRequests != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.MessageRequests); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("MessageRequests", err)
+		}
+	}
+	if this.Message != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.Message); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("Message", err)
+		}
+	}
+	if this.GroupRequests != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.GroupRequests); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("GroupRequests", err)
+		}
+	}
+	return nil
+}
+func (this *EmailAndSmsPushNotification) Validate() error {
+	if this.CreatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.CreatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("CreatedAt", err)
+		}
+	}
+	if this.UpdatedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.UpdatedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("UpdatedAt", err)
+		}
+	}
+	if this.DeletedAt != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.DeletedAt); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("DeletedAt", err)
+		}
+	}
+	if this.FeedbackEmail != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.FeedbackEmail); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("FeedbackEmail", err)
+		}
+	}
+	if this.ReminderEmails != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.ReminderEmails); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("ReminderEmails", err)
+		}
+	}
+	if this.ProductEmails != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.ProductEmails); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("ProductEmails", err)
+		}
+	}
+	if this.NewsEmails != nil {
+		if err := github_com_mwitkow_go_proto_validators.CallValidatorIfExists(this.NewsEmails); err != nil {
+			return github_com_mwitkow_go_proto_validators.FieldError("NewsEmails", err)
+		}
+	}
+	return nil
+}
+func (this *TieredPushNotificationSetting) Validate() error {
+	return nil
+}
+func (this *PushNotificationSetting) Validate() error {
 	return nil
 }
