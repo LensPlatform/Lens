@@ -27,4 +27,4 @@ COPY . .
 
 RUN go get github.com/githubnemo/CompileDaemon
 
-ENTRYPOINT CompileDaemon -log-prefix=false -build="go build ./src" --command= ./
+ENTRYPOINT CompileDaemon -color=true -log-prefix=true -graceful-kill=true -exclude-dir=.git -build="go build ./src" --command= ./

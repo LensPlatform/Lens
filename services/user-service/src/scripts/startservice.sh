@@ -9,6 +9,6 @@ echo "removing stopped container"
 docker-compose rm -f
 echo "pulling latest containers from docker hub"
 docker-compose pull
-docker-compose build --no-cache
+docker-compose build
 echo "spinning up services"
-docker-compose up users
+docker-compose up

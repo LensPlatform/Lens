@@ -87,6 +87,7 @@ func Init(zapLogger *zap.Logger) (*gorm.DB, error) {
 	return db, err
 }
 
+
 // CreateTablesOrMigrateSchemas creates a given set of tables based on a schema
 // if it does not exist or migrates the table schemas to the latest version
 func CreateTablesOrMigrateSchemas(db *gorm.DB, zapLogger *zap.Logger) {

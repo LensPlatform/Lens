@@ -12,7 +12,7 @@ services:
       - "--entrypoints.web.address=:80"
     ports:
       - "81:81"
-      - "8081:8081"
+      - "8089:8089"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
@@ -71,29 +71,11 @@ services:
     depends_on:
       - storage
 
-  #users-v1:
-  #  build:
-  #    context: src
-  #    dockerfile: ./Dockerfile
-  #  container_name: users-v1
-  #  ports:
-  #    - 8805:8085
-  #    - 8804:8084
-  ##    - 8081:8081
-  #  restart: always
-  #  networks:
-  #    - monitor-net
-  #  depends_on:
-  #    - stats
-  #    - queue-ram1
-  #    - queue-disc1
-  #  volumes:
-  #    - './:/go/src/github.com/LensPlatform/Lens'
-  users:
+  users-v2:
     build:
       context: .
       dockerfile: ./Dockerfile
-    container_name: users
+    container_name: users-v2
     ports:
       - 8805:8085
       - 8804:8084
