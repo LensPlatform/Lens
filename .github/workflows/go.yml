@@ -34,7 +34,7 @@ jobs:
         fi
 
     - name: Build
-      run: go build -v ./src
+      run: go build -v src/main.go
 
     - name: Run Tests
       run:  go test -v -race -coverprofile=coverage.coverprofile -covermode=atomic -tags integration ./...
