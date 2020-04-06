@@ -2,3 +2,5 @@ postgres-data
 profilesvc
 *.idea
 config.json
+*.exe
+*tmp
