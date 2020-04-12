@@ -1,0 +1,105 @@
+syntax = "proto3";
+import "github.com/infobloxopen/protoc-gen-gorm/options/gorm.proto";
+import "proto/common.proto";
+import "proto/tables.proto";
+option go_package = "model";
+
+service UsersService {
+    option (gorm.server).autogen = true;
+    // Define Get, Update, Create, Delete requests for all user types
+    rpc GetUserByID(Uint32UserTypeRequest) returns (UserResponse);
+    rpc GetUserByUsername(StringUserTypeRequest) returns (UserResponse);
+    rpc GetUserByEmail(StringUserTypeRequest) returns (UserResponse);
+    rpc GetUsersByType(GetUsersSearchRequest) returns (UserResponse);
+    rpc CreateUser(UserRequest) returns (UpdateOrCreateEntityResponse);
+    rpc UpdateUser(UserRequest) returns (UpdateOrCreateEntityResponse);
+    rpc DeleteUser(UserRequest) returns (UpdateOrCreateEntityResponse);
+    rpc DeleteProfileById(Uint32UserTypeRequest) returns (UpdateOrCreateEntityResponse);
+
+    // Define Get, Update, Create, Delete requests for all team types
+    rpc CreateTeam(TeamRequest) returns (UpdateOrCreateEntityResponse);
+    rpc UpdateTeam(TeamRequest) returns (UpdateOrCreateEntityResponse);
+    rpc DeleteTeam(TeamRequest) returns (UpdateOrCreateEntityResponse);
+    rpc GetTeamByID(Uint32TeamTypeRequest) returns (TeamResponse);
+    rpc GetTeamByName(StringTeamTypeRequest) returns (TeamResponse);
+    rpc GetTeamByEmail(StringTeamTypeRequest) returns (TeamResponse);
+    rpc GetTeamsByType(StringTeamTypeRequest) returns (Team);
+    rpc GetTeamsByIndustry(StringTeamTypeRequest) returns (TeamResponse);
+
+    // Define Get, Update, Create, Delete requests for all group types
+    rpc CreateGroup(GroupRequest) returns (UpdateOrCreateEntityResponse);
+    rpc GetGroupByID(Uint32GroupTypeRequest) returns (GroupResponse);
+    rpc GetGroupByName(StringGroupTypeRequest) returns (GroupResponse);
+    rpc GetGroupsByType(StringGroupTypeRequest) returns (GroupResponse);
+    rpc UpdateGroup(GroupRequest) returns (UpdateOrCreateEntityResponse);
+    rpc DeleteGroup(GroupRequest) returns (UpdateOrCreateEntityResponse);
+}
+
+message GetUsersSearchRequest {
+
+    string QueryMessage = 1; // investor or startup
+    int32 MaxResults = 2;
+    AccountType userType = 3;
+}
+
+message Uint32UserTypeRequest {
+    uint32 ID = 1;
+    AccountType userType = 2;
+}
+
+message Uint32TeamTypeRequest {
+    uint32 ID = 1;
+    TeamAccountType userType = 2;
+}
+
+message Uint32GroupTypeRequest {
+    uint32 ID = 1;
+}
+
+message StringUserTypeRequest {
+    string QueryMessage = 1;
+    AccountType userType = 3;
+}
+
+message StringTeamTypeRequest {
+    string QueryMessage = 1;
+    TeamAccountType userType = 3;
+}
+
+message StringGroupTypeRequest {
+    string QueryMessage = 1;
+}
+
+message UserResponse {
+    repeated User Users = 1;
+    string error = 2;
+}
+
+message UserRequest {
+    User user = 1;
+    AccountType userType =2;
+}
+
+message TeamResponse {
+    repeated Team Teams = 1;
+    string error = 2;
+}
+
+message TeamRequest {
+    Team team = 1;
+    TeamAccountType teamType =2;
+}
+
+message GroupResponse {
+    repeated Group Groups = 1;
+    string error = 2;
+}
+
+message GroupRequest {
+    Group group = 1;
+}
+
+message UpdateOrCreateEntityResponse {
+    bool Successful = 1;
+    string error = 2;
+}

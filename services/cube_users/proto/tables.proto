@@ -1,0 +1,305 @@
+syntax = "proto3";
+
+import "github.com/infobloxopen/protoc-gen-gorm/options/gorm.proto";
+import "github.com/mwitkow/go-proto-validators/validator.proto";
+import "github.com/protobuf/src/google/protobuf/timestamp.proto";
+import "proto/common.proto";
+option go_package = "model";
+
+message User {
+    option (gorm.opts) = {
+        ormable: true,
+        multi_account: true
+    };
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    string user_account_type = 5;
+    string first_name = 6 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string last_name = 7 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string user_name = 8 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string gender = 9 [(validator.field) = {msg_exists : true}];
+    string languages = 10;
+    string password = 11 [(validator.field) = {msg_exists : true , string_not_empty: true, length_gt : 10}];
+    string password_confirmed = 12 [(validator.field) = {msg_exists : true , string_not_empty: true, length_gt : 10}];
+    int32 age = 13 [(validator.field) = {msg_exists : true}];
+    string birth_date = 14 [(validator.field) = {msg_exists : true}];
+    string phone_number = 15 [(validator.field) = {msg_exists : true}];
+    string email = 16 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string intent = 17 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    Profile profile_id = 18 [(gorm.field).belongs_to = {}];
+    string reset_token = 19;
+    google.protobuf.Timestamp reset_token_expiration = 20;
+    repeated Subscriptions subscriptions_id = 21;
+    bool is_active = 22;
+}
+
+// Based on user
+message Profile {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    string bio = 5;
+    repeated Experience experience_id = 6 [(gorm.field).many_to_many = {}];;
+    Address address_id = 7 [(gorm.field).belongs_to = {}];
+    repeated Education education_id = 8 [(gorm.field).belongs_to = {}];
+    repeated string skills = 9;
+    Team team_id = 10 [(gorm.field).belongs_to = {}];
+    repeated Group group_id = 11 [(gorm.field).many_to_many = {}];;
+    SocialMedia social_media = 12 [(gorm.field).belongs_to = {}];
+    Settings settings_id = 13 [(gorm.field).belongs_to = {}];
+    string profile_type = 14;
+    string nationality = 15;
+    string avatar_url = 16;
+}
+
+// Group entities withold a many to many relationship with the User entities
+message Group {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    string type = 5 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string name = 6 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string bio = 7 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    repeated string Tags = 8 [(validator.field) = {msg_exists : true , string_not_empty: true}];;
+    int32 number_of_members = 9;
+    repeated User group_members = 10;
+    bool isPublic = 11;
+    User Admin = 12;
+    string avatar_url = 13;
+}
+
+message Team {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    string name = 5 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    // Comma separated values of tags
+    repeated string tags = 6 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string email = 7 [(validator.field) = {msg_exists : true , string_not_empty: true}];
+    string type = 8 [(validator.field) = {msg_exists : true , string_not_empty: true}]; // investor or startup team
+    string industry = 9 [(validator.field) = {msg_exists : true , string_not_empty: true}]; // about the team
+    google.protobuf.Timestamp founded_date = 10;
+    int32 number_of_employees = 11;
+    Address headquarters_id = 12;
+    repeated User members = 13;
+    repeated User advisors = 14;
+    SocialMedia social_media = 15;
+    string phone_number = 16;
+    string password = 17;
+    TeamProfile team_profile_id = 18;
+    repeated Subscriptions subscriptions = 19;
+    bool is_active = 20;
+    string reset_token = 21;
+    google.protobuf.Timestamp reset_token_expiration = 22;
+    User admin_id = 23;
+    string bio = 24;
+}
+
+message TeamProfile {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    Settings settings_id = 5;
+    InvestorDetail investor_detail_id = 6;
+    StartupDetail startup_detail_id = 7;
+    Media media_id = 8;
+}
+
+enum InvestorType  {
+    banks = 0;
+    angel_Investors = 1;
+    peer_to_peer_lenders = 2;
+    venture_capitalists = 3;
+    personal_investors = 4;
+}
+
+enum InvestmentStage {
+    seed_capital = 0;
+    startup_capital = 1;
+    early_first_second_stage_capital = 2;
+    expansion_second_third_stage_capital = 3;
+    mezzanine_bridge_pre_public_stage_capital = 4;
+}
+
+message InvestorDetail {
+    option (gorm.opts).ormable = true;
+    uint32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}]; // Id serves as a primary key and references the associated user id
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    InvestorType investor_type = 5;
+    InvestmentStage investment_stage = 6;
+    int32 number_of_exits = 7;
+    int32 number_of_investments = 8;
+    int32 number_of_funds = 9;
+    repeated Investment investments_id = 10;
+}
+
+message StartupDetail {
+    option (gorm.opts).ormable = true;
+    uint32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];// Id serves as a primary key and references the associated user id
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp deleted_at = 3;
+    google.protobuf.Timestamp updated_at = 4;
+    int32 total_funding = 5;
+    int32 latest_round_funding = 6;
+    string latest_round = 7;
+    google.protobuf.Timestamp latest_round_end_date = 8;
+    string funding_type = 9;
+    string company_name = 10;
+}
+
+message Settings {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    google.protobuf.Timestamp last_login = 5;
+    string last_login_location = 6;
+    Notification notification_id  = 7;
+    Privacy privacy_id = 8;
+    Payments payment_id = 9;
+}
+
+message LoginActivity {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    Address location = 2;
+    string date = 3;
+}
+
+message Payments  {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    google.protobuf.Timestamp last_login = 5;
+    Card debit_card = 6;
+    Card credit_card = 7;
+    Pin pin = 8;
+}
+
+message Card {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    google.protobuf.Timestamp last_login = 5;
+    string card_number = 6;
+    string security_code = 7;
+    string card_zip_code  = 8;
+    string full_name = 9;
+    string city = 10;
+    string state = 11;
+    string zipcode = 12;
+    string address = 13;
+}
+
+message Pin {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    google.protobuf.Timestamp last_login = 5;
+    bool pin_enabled = 6;
+    string pin = 7;
+}
+
+message Privacy {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    bool activity_status  = 5;
+    bool private_account  = 6;
+    repeated Profile blocked_accounts_id = 7;
+    repeated Profile muted_accounts_id = 8;
+    repeated TeamProfile blocked_team_accounts_id = 9;
+    repeated TeamProfile muted_team_accounts_id = 10;
+}
+
+message Notification {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    bool pause_all = 5;
+    PostAndCommentsPushNotification post_and_comments_id  = 6;
+    FollowingAndFollowersPushNotification following_and_followers_id = 7;
+    DirectMessagesPushNotification direct_messages_id  = 8;
+    EmailAndSmsPushNotification email_and_sms_id = 9;
+}
+
+message PostAndCommentsPushNotification {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    TieredPushNotificationSetting likes  = 5; // yoan liked your photo
+    TieredPushNotificationSetting likes_and_comments_on_posts_of_you = 6; // yoan commented on a post you're tagged in
+    TieredPushNotificationSetting posts_of_you = 7; // yoan tagged you in a photo
+    TieredPushNotificationSetting comments = 8; // yoan commented nice pic
+    TieredPushNotificationSetting comment_likes = 9; // yoan liked your comment "nice shot"
+}
+
+message FollowingAndFollowersPushNotification {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    PushNotificationSetting follower_requests = 5;  // yoan has requested to follow you
+    PushNotificationSetting accepted_follower_requests = 6;  // yoan accepted your follow request
+    TieredPushNotificationSetting mentions_in_bio = 7; // yoan mentioned you in his bio
+}
+
+message DirectMessagesPushNotification {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    PushNotificationSetting message_requests = 5; // yoan wants to send you message
+    PushNotificationSetting message  = 6;// yoan has sent you a message
+    PushNotificationSetting group_requests = 7; // yoan wants to add willy to your group
+}
+
+message EmailAndSmsPushNotification {
+    option (gorm.opts).ormable = true;
+    int32 id = 1 [(gorm.field).tag = {type: "integer" primary_key: true}];
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+    google.protobuf.Timestamp deleted_at = 4;
+    PushNotificationSetting feedback_email = 5;
+    PushNotificationSetting reminder_emails = 6;
+    PushNotificationSetting product_emails  = 7;
+    PushNotificationSetting news_emails   = 8;
+}
+
+message TieredPushNotificationSetting {
+    bool Off = 1;
+    bool FromPeopleIFollow = 2;
+    bool FromEveryone = 3;
+}
+
+message PushNotificationSetting {
+    bool Off = 1;
+    bool On = 2;
+}
